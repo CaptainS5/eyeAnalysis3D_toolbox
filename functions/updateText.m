@@ -1,0 +1,29 @@
+function updateText(currentTrial, fig)
+
+screenSize = get(groot, 'ScreenSize');
+% choose position of the text box
+xPosition = 10; %screenSize(3)*2/3-50;
+yPosition = 500; %screenSize(4)-screenSize(4)/2; %screenSize(4)*2/5-50;
+% how large should it be?
+verticalDistance = 20;
+width = 75;
+height = 20;
+textblock = 0;
+
+% now we can add all info we want in a text box each
+subjectIdText = uicontrol(fig,'Style','text',...
+    'String', ['Trial ' num2str(currentTrial)],...
+    'Position',[xPosition yPosition width height],...
+    'HorizontalAlignment','left'); %#ok<*NASGU>
+
+% textblock = textblock+1;
+% trialNoText = uicontrol(fig,'Style','text',...
+%     'String', ['Persistence ', num2str(round(trialInfoCurrent.persistence/1437*100)), '%'],...
+%     'Position',[xPosition yPosition-textblock*verticalDistance width height],...
+%     'HorizontalAlignment','left');
+
+% textblock = textblock+1;
+% trialNoText = uicontrol(fig,'Style','text',...
+%     'String', ['Word duration ', num2str(trialInfoCurrent.wordDisplayTime*1000, '%03.f'), 'ms'],...
+%     'Position',[xPosition yPosition-textblock*verticalDistance width height],...
+%     'HorizontalAlignment','left');
