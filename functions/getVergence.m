@@ -54,3 +54,46 @@ verAngle = atan2d(vecnorm(cross(v1, v2)), dot(v1, v2));
 % rest of the NaNs should be missing signals
 idx = find(all(n==repmat([0; 0; 0], 1, size(n, 2))));
 verDist(idx) = inf;
+
+%{
+% Initialize the axis limits
+zLimits = [-0.01, 0.01]; % Adjust these limits as needed
+yLimits = [-0.02, 0.02]; % Adjust these limits as needed
+xLimits = [-0.02, 0.02]; % Adjust these limits as needed
+
+% Iterate over the vectors in the matrices
+for i = 55000:1200:size(leftEyeDir, 2)
+    % Extract vectors from the matrices
+    vector1 = leftEyeDir(:, i) / 1000;
+    vector2 = rightEyeDir(:, i) / 1000;
+    vector3 = leftEyePos(:, i) / 1000;
+    vector4 = rightEyePos(:, i) / 1000;
+    % Plot the first vector
+    quiver3(vector3(1), vector3(2), vector3(3), vector1(1), vector1(2), vector1(3), 'b', 'LineWidth', 2);
+
+    % Plot the second vector
+    quiver3(vector4(1), vector4(2), vector4(3), vector2(1), vector2(2), vector2(3), 'r', 'LineWidth', 2);
+
+    % Set the axis limits
+    axis([xLimits, yLimits, zLimits]);
+
+    % Add a legend
+    legend('Vector 1', 'Vector 2');
+
+    % Show the plot
+    grid on;
+    hold off;
+
+    % Pause until a key is pressed
+    disp('Press any key to continue...');
+    pause;
+
+    % Clear the current figure
+    clf;
+    
+    % Create a new figure for the next iteration
+    figure;
+    axis equal;
+    hold on;
+end
+%}
