@@ -25,7 +25,7 @@ if sampleRate >= 600
     error = 1;
 else
     n = 6;
-    error = 3*nanstd(restV);
+    error = 3*nanstd(restV); % nanstd(restV);
 end
 
 thresNew = nanmean(restV) + n*nanstd(restV); % the next threshold
@@ -39,8 +39,8 @@ while abs(thres-thresNew) > error % iterate until the difference is less than so
     end
 end
 
-if thres > 100 % saccade peak threshold should not be too low or too high...
-    thres = 100;
+if thres > 150 % saccade peak threshold should not be too low or too high...
+    thres = 150;
 elseif thres < 20
     thres = 20;
 end
@@ -158,9 +158,9 @@ while ii <= length(peakOnI)
     %         offTime = eyeTrace.timestamp(peakOffI);
     %     end
     %% for coil data... it's so clean that we just need to find when acc changes signs as the saccade on- and offset :)
-    %     signAcc = sign(acc);
-    %     signDiffAcc = [NaN; diff(signAcc)];
-    %     changeSign = find(abs(signDiffAcc)==2);
+        signAcc = sign(acc);
+        signDiffAcc = [NaN; diff(signAcc)];
+        changeSign = find(abs(signDiffAcc)==2);
     %
     %     onSignI = max(find(changeSign<peakOnI(ii)));
     %     if isempty(onSignI) && ii == 1
@@ -218,6 +218,22 @@ while ii <= length(peakOnI)
     end
 
     % some special edge conditions
+    % if onset vel > threshold... keep searching backward
+    if ~isempty(onsetT) && onsetT > 0
+        if vel(onsetT) > sacThres
+            onsetT = find(vel(1:onsetT)<=sacThres, 1, "last");
+            if isempty(onsetT)
+                validP(ii) = 0;
+                ii = ii+1;
+                continue
+            end
+        end
+    else
+        validP(ii) = 0;
+        ii = ii+1;
+        continue
+    end
+
     % make sure onset doesn't go outside the current time frames... if yes, just skip for now
     if onsetT<=1
         validP(ii) = 0;
@@ -225,9 +241,9 @@ while ii <= length(peakOnI)
         continue
     end
 
-    if isnan(vel(onsetT)) % onset during missing signal
-        onsetT = find(~isnan(vel(onsetT:end)), 1, "first")+onsetT-1;
-    end
+    %     if isnan(vel(onsetT)) % onset during missing signal
+    %         onsetT = find(~isnan(vel(onsetT:end)), 1, "first")+onsetT-1;
+    %     end
 
     if jj>1 && onsetT<=offsetI(jj-1) % the current saccade onset is before the last saccade offset
         % could be that the regression fitting interval is too flat, or the
@@ -235,26 +251,15 @@ while ii <= length(peakOnI)
         % just go for the first point where acceleration drops below
         % threshold before the vel peak chunk, or right after the last saccade offset, whichever is later
         onsetT = max([find(acc(1:peakOnI(ii))<baseAcc); offsetI(jj-1)+1]);
-    end
-    %     if onsetI(jj)>peakOnI(ii)
-    %         onsetI(jj) = peakOnI(ii);
-    %     end
-    if ii>1 && onsetT<peakOffI(ii-1) % if onset is within the last invalid vel peak chunk...
-        %         if validP(ii)==0
-        % to avoid being trapped in an endless loop, exclude
-        %         onsetI(jj) = [];
-        validP(ii) = 0;
-        ii = ii+1;
-        continue
-        %         else % put the onset at the end of the last vel peak for now
-        %             % but very likely it is noise... could exclude as well
-        %             onsetI(jj)=peakOffI(ii-1);
+
+        if vel(onsetT) > sacThres
+            validP(ii) = 0;
+            ii = ii+1;
+            continue
+            %             onsetT = changeSign(find(changeSign<peakOnI(ii), 1, "last")); % find the first acceleration change point before the peak
+        end
         %         end
     end
-
-    %     if ii==61
-    %         a=0;
-    %     end
 
     %% for offset, similar process as onset, but look for the down slope of velocity
     % use the duration when acceleration is lowest (large negative values),
@@ -301,16 +306,27 @@ while ii <= length(peakOnI)
     end
 
     % again, deal with edge conditions
+    if vel(offsetT) > sacThres
+        offsetT = find(vel(offsetT:end)<=sacThres, 1, "first")+offsetT-1;
+        if isempty(offsetT)
+            validP(ii) = 0;
+            ii = ii+1;
+            continue
+        end
+    end
+
     % make sure saccades don't go outside/offset is before onset
+
     if offsetT>=length(eyeTrace.timestamp) || offsetT<=onsetT
         validP(ii) = 0;
         ii = ii+1;
         continue
     end
 
-    if isnan(vel(offsetT)) % offset during missing signal
-        offsetT = find(~isnan(vel(1:offsetT)), 1, "last");
-    end
+
+    %     if isnan(vel(offsetT)) % offset during missing signal
+    %         offsetT = find(~isnan(vel(1:offsetT)), 1, "last");
+    %     end
 
     % make sure saccades don't overlap
     if ii<length(peakOnI) && offsetT > peakOnI(ii+1)
@@ -323,16 +339,16 @@ while ii <= length(peakOnI)
         end
     end
 
-    if offsetT < peakOffI(ii)-3 % there might be another saccade in this duration
-        % insert this new vel peak duration to check next
-        peakOnI = [peakOnI(1:ii); offsetT+1; peakOnI(ii+1:end)];
-        peakOffI = [peakOffI(1:ii-1); offsetT; peakOffI(ii:end)];
-    end
+    %     if offsetT < peakOffI(ii)-3 % there might be another saccade in this duration
+    %         % insert this new vel peak duration to check next
+    %         peakOnI = [peakOnI(1:ii); offsetT+1; peakOnI(ii+1:end)];
+    %         peakOffI = [peakOffI(1:ii-1); offsetT; peakOffI(ii:end)];
+    %     end
     %% end of crystal's algorithm
 
     %% sanity check, if abnormal or containing a blink/labeled noise chunk, then exclude
-    %     peakVel = nanmax(vel(onsetI(jj):offsetI(jj)));
-    %     peakAcc = nanmax(abs(acc(onsetI(jj):offsetI(jj))));
+    peakVel = nanmax(vel(onsetT:offsetT));
+    peakAcc = nanmax(abs(acc(onsetT:offsetT)));
     %     if peakVel>noiseThres.vel || peakAcc>noiseThres.acc || peakVel<150 ...
     %             || ~isempty(find(excludeI<offsetI(jj) & excludeI>onsetI(jj) ))
     %         onsetI(jj) = [];
@@ -340,12 +356,15 @@ while ii <= length(peakOnI)
     %         jj = jj-1;
     %         validP(ii) = 0;
     %     end
-    if max(abs(acc(peakOnI(ii):peakOffI(ii))))>=baseAcc % only count as a saccade if passing certain acceleration threshold
+
+    if max(abs(acc(peakOnI(ii):peakOffI(ii))))>=baseAcc ...
+            && peakVel<1500 ...
+            && isempty(find(isnan(vel(onsetT:offsetT)))) % only count as a saccade if passing certain acceleration threshold
         onsetI(jj) = onsetT;
         offsetI(jj) = offsetT;
         jj = jj+1;
-    else % mark it as potential smooth movement, fit slope as well
-        classID(onsetT:offsetT) = 40;
+        %     else
+        %         classID(onsetT:offsetT) = 40; % mark it as potential smooth movement, fit slope as well
     end
     ii = ii+1;
 end
@@ -353,8 +372,8 @@ end
 % "time = eyeTrace.timestamp-eyeTrace.timestamp(1);" to locate the index of
 % onset & offset
 
-saccade.onsetI = onsetI; % index of onset
-saccade.offsetI = offsetI; % index of offset
+saccade.onsetI = onsetI'; % index of onset
+saccade.offsetI = offsetI'; % index of offset
 if ~isempty(onsetI)
     saccade.onsetTime = eyeTrace.timestamp(saccade.onsetI); % actual time stamp of onset
     saccade.offsetTime = eyeTrace.timestamp(saccade.offsetI); % actual time stamp of offset

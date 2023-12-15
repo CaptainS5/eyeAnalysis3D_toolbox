@@ -14,9 +14,16 @@ filtOrder = 4;
 filtCutoff = 30;
 
 if ismember('gazePosWorldX', eyeAligned.Properties.VariableNames)
+    % get the NaN indices
+    nanI = find(isnan(eyeAligned.gazePosWorldX));
+
     gazePosWorldFilt = butterworthFilter([eyeAligned.gazePosWorldX, ...
         eyeAligned.gazePosWorldY, eyeAligned.gazePosWorldZ],...
         filtFrequency, filtOrder, filtCutoff);
+
+    % put NaN back in
+    gazePosWorldFilt(nanI, :) = NaN;
+
 %     gazePosFilt = [eyeAligned.gazePosX, ...
 %         eyeAligned.gazePosY, eyeAligned.gazePosZ];
     gazePosWorldFiltT = array2table(gazePosWorldFilt, 'VariableNames', {'gazePosWorldFiltX', 'gazePosWorldFiltY', 'gazePosWorldFiltZ'}); % gaze position in world coordinates
@@ -24,10 +31,18 @@ else
     gazePosWorldFiltT = [];
 end
 
+
 if ismember('gazePosHeadX', eyeAligned.Properties.VariableNames)
+    % get the NaN indices
+    nanI = find(isnan(eyeAligned.gazePosHeadX));
+
     gazePosHeadFilt = butterworthFilter([eyeAligned.gazePosHeadX, ...
         eyeAligned.gazePosHeadY, eyeAligned.gazePosHeadZ],...
         filtFrequency, filtOrder, filtCutoff);
+
+    % put NaN back in
+    gazePosHeadFilt(nanI, :) = NaN;
+
 %     gazePosHeadFilt = [eyeAligned.gazePosHeadX, ...
 %         eyeAligned.gazePosHeadY, eyeAligned.gazePosHeadZ];
     gazePosHeadFiltT = array2table(gazePosHeadFilt, 'VariableNames', {'gazePosHeadFiltX', 'gazePosHeadFiltY', 'gazePosHeadFiltZ'}); % gaze position in head coordinates
@@ -35,16 +50,24 @@ else
     gazePosHeadFiltT = [];
 end
 
+
 if ismember('eyePosHeadX', eyeAligned.Properties.VariableNames)
+    % get the NaN indices
+    nanI = find(isnan(eyeAligned.eyePosHeadX));
+
     eyePosFilt = butterworthFilter([eyeAligned.eyePosHeadX, ...
         eyeAligned.eyePosHeadY, eyeAligned.eyePosHeadZ],...
         filtFrequency, filtOrder, filtCutoff);
+
+    % put NaN back in
+    eyePosFilt(nanI, :) = NaN;
 %     eyePosFilt = [eyeAligned.eyePosX, ...
 %         eyeAligned.eyePosY, eyeAligned.eyePosZ];
     eyePosFiltT = array2table(eyePosFilt, 'VariableNames', {'eyePosHeadFiltX', 'eyePosHeadFiltY', 'eyePosHeadFiltZ'}); % eye position in head coordinates
 else
     eyePosFiltT = [];
 end
+
 
 %% filtering eye-in-head orientation data, x and y separately
 % there are several types of filters available, and butterworth filter is
@@ -58,18 +81,32 @@ filtOrder = 9;
 filtCutoff = 40;
 
 if ismember({'gazeOriHeadX'}, eyeAligned.Properties.VariableNames)
+    % get the NaN indices
+    nanI = find(isnan(eyeAligned.gazeOriHeadX));
+
     oriHeadFilt = butterworthFilter([eyeAligned.gazeOriHeadX, ...
         eyeAligned.gazeOriHeadY],...
         filtFrequency, filtOrder, filtCutoff);
+
+    % put NaN back in
+    oriHeadFilt(nanI, :) = NaN;
+
     oriHeadFiltT = array2table(oriHeadFilt, 'VariableNames', {'gazeOriHeadFiltX', 'gazeOriHeadFiltY'}); % gaze ori in device/head frames
 else
     oriHeadFiltT = [];
 end
 
 if ismember({'gazeOriWorldX'}, eyeAligned.Properties.VariableNames)
+    % get the NaN indices
+    nanI = find(isnan(eyeAligned.gazeOriWorldX));
+
     oriWorldFilt = butterworthFilter([eyeAligned.gazeOriWorldX, ...
         eyeAligned.gazeOriWorldY, eyeAligned.gazeDepth],...
         filtFrequency, filtOrder, filtCutoff);
+
+    % put NaN back in
+    oriWorldFilt(nanI, :) = NaN;
+
     oriWorldFiltT = array2table(oriWorldFilt, 'VariableNames', {'gazeOriWorldFiltX', 'gazeOriWorldFiltY', 'gazeDepthFilt'}); % gaze ori in world/body frames
 else
     oriWorldFiltT = [];
@@ -124,6 +161,7 @@ if ismember({'gazePosX', 'eyePosX', 'frameXYZ'}, eyeAligned.Properties.VariableN
 else
     velWorldRaw = diffVel(oriWorldFilt(:, 1:2), eyeAligned.timestamp);
 end
+
 velWorldRawT = array2table(velWorldRaw, 'VariableNames', {'velOriWorldRawX', 'velOriWorldRawY', 'velOriWorldRaw2D'});
 
 %% filtering velocity trace
@@ -164,17 +202,29 @@ velWorldRawT = array2table(velWorldRaw, 'VariableNames', {'velOriWorldRawX', 've
 
 % can modify filtOrder and cutoff frequency according to your needs
 if sampleRate >= 600
-filtOrder = 9;
-filtCutoff = 55;
-% 
-velWorldFilt = butterworthFilter(velWorldRaw(:, 1:2), ...
+    filtOrder = 9;
+    filtCutoff = 55;
+
+    % get the NaN indices
+    nanI = find(isnan(velWorldRaw(:, 1)));
+    
+    velWorldFilt = butterworthFilter(velWorldRaw(:, 1:2), ...
+        filtFrequency, filtOrder, filtCutoff);
+
+    % put NaN back in
+    velWorldFilt(nanI, :) = NaN;
+    
+    % velHeadFiltRaw = butterworthFilter(velHeadRawRaw(:, 1:2), ...
+    %     filtFrequency, filtOrder, filtCutoff);
+    
+    % get the NaN indices
+    nanI = find(isnan(velHeadRaw(:, 1)));
+
+    velHeadFilt = butterworthFilter(velHeadRaw(:, 1:2), ...
     filtFrequency, filtOrder, filtCutoff);
 
-% velHeadFiltRaw = butterworthFilter(velHeadRawRaw(:, 1:2), ...
-%     filtFrequency, filtOrder, filtCutoff);
-
-velHeadFilt = butterworthFilter(velHeadRaw(:, 1:2), ...
-    filtFrequency, filtOrder, filtCutoff);
+    % put NaN back in
+    velHeadFilt(nanI, :) = NaN;
 else
     % SgoLay to smooth the signal, another common filter
     order = 9;
@@ -243,4 +293,6 @@ eyeTrace = [eyePosFiltT gazePosHeadFiltT gazePosWorldFiltT ...
     oriHeadFiltT oriWorldFiltT velHeadRawT velHeadFiltT accHeadT ...
     velWorldRawT velWorldFiltT accWorldT];
 eyeTrace.timestamp = eyeAligned.timestamp;
+eyeTrace.blinkFlag = eyeAligned.blinkFlag;
+
 end

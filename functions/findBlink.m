@@ -10,10 +10,11 @@ blink.maxDur = 0.6; % to account for data losses due to other issues
 % starting position (second component). This alternation of components is
 % completed within 50 ms". --Khazali, Pomper & Thier, 2017, Scientific
 % Reports
-vel = eyeTrace.velOriWorldFilt2D; % use retinal gaze change to identify "suspects"
+vel = eyeTrace.velOriHeadFilt2D; % use retinal gaze change to identify "suspects"
 
 % video-based eye tracking, blinks as no signal in data
-blinkIdx = isnan(eyeTrace.velOriWorldFilt2D);
+% blinkIdx = isnan(eyeTrace.velOriWorldFilt2D);
+blinkIdx = (eyeTrace.blinkFlag ~= 0 | isnan(eyeTrace.velOriHeadFiltX));
 
 % on and offsets of the missing signal frames
 iDiff = diff(blinkIdx);
@@ -31,20 +32,38 @@ end
 % the missing signal frames...
 velDiff = [NaN; diff(vel)];
 signChange = [NaN; sign(velDiff(1:end-1).*velDiff(2:end))];
-for ii = 1:length(onsetBI)
+ii = 1;
+while ii <= length(onsetBI)
     if onsetBI(ii)~=1
         startI = find(signChange(1:onsetBI(ii))==-1 & sign(velDiff(1:onsetBI(ii)))==1, 1, "last");
         if ~isempty(startI)
-            onsetBI(ii) = startI;
+            onsetBI(ii) = startI-ms2frame(50, sampleRate); % pad in a little bit... to deal with the noise around blinks in the current dataset
+
+            if onsetBI(ii) < 1 % if padding too much...
+                onsetBI(ii) = 1;
+            end
         end
     end
 
     if offsetBI(ii)~=length(iDiff)
         endI = find(signChange(offsetBI(ii):end)==-1 & sign(velDiff(offsetBI(ii):end))==1, 1, "first");
         if ~isempty(endI)
-            offsetBI(ii) = endI+offsetBI(ii)-1;
+            offsetBI(ii) = endI+offsetBI(ii)-1 + ms2frame(50, sampleRate); % pad in a little bit... to deal with the noise around blinks in the current dataset
+
+            if offsetBI(ii) > length(eyeTrace.timestamp) % longer than the recorded period, just move back to the end
+                offsetBI(ii) = length(eyeTrace.timestamp);
+            end
         end
+    end   
+
+    % some edge cases
+    if ii>1 && onsetBI(ii) <= offsetBI(ii-1) % overlap with the last blink, merge with the previous
+        onsetBI(ii) = [];
+        offsetBI(ii-1) = [];
+        ii = ii - 1;
     end
+
+    ii = ii + 1;
 end
 
 blink.onsetI = onsetBI; % index of onset

@@ -18,7 +18,8 @@ VOR.thresHeadVel = vorThres.head;
 % use gainDir as it is more robust compared to amplitude
 % similarly, let's first find peaks within each fixation duration
 headVel2D = sqrt(sum(headVelXY.^2, 2));
-
+onsetI = [];
+offsetI = [];
 jj = 1; % index for VOR
 for ii = 1:size(gazeFix.onsetI, 1)
     idxT = gazeFix.onsetI(ii):gazeFix.offsetI(ii); % the current fixation duration

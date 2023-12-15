@@ -1,8 +1,8 @@
 function updatePlots(plotMode, eyeTrial, axSub, fig)
 set(0, 'CurrentFigure', fig)
 time = eyeTrial.eyeTrace.timestamp-min(eyeTrial.eyeTrace.timestamp);
-xRange = [333, 334]; %[time(1) time(end)]; %
-yRange = [-200 200]; % [-100 100];%
+xRange = [300, 305]; %[time(1) time(end)]; %
+yRange = [-400 400]; % [-100 100];%
 
 if plotMode==0 % final result plots with saccades
     subplot(axSub(1)) % horizontal gaze vel
@@ -12,23 +12,21 @@ if plotMode==0 % final result plots with saccades
     
     %
     if ~isempty(eyeTrial.blink.onsetTime) % mark blinks if we have any
-        p1 = plot(eyeTrial.blink.onsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltX(max([eyeTrial.blink.onsetI-1, ones(size(eyeTrial.blink.onsetI))], [], 2)), 'or');
-        p2 = plot(eyeTrial.blink.offsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltX(...
+        p1 = plot(time(eyeTrial.blink.onsetI), eyeTrial.eyeTrace.velOriWorldFiltX(max([eyeTrial.blink.onsetI-1, ones(size(eyeTrial.blink.onsetI))], [], 2)), 'or');
+        p2 = plot(time(eyeTrial.blink.offsetI), eyeTrial.eyeTrace.velOriWorldFiltX(...
             min([eyeTrial.blink.offsetI+1, ones(size(eyeTrial.blink.onsetI)).*length(eyeTrial.eyeTrace.velOriWorldFiltX)], [], 2) ), 'og');
         %     for ii = 1:length(eyeTrial.saccade.offsetTime)
         %         text(eyeTrial.saccade.offsetTime(ii)-min(eyeTrial.eyeTrace.timestamp), ...
         %             eyeTrial.eyeTrace.velFilt(eyeTrial.saccade.offsetI(ii)), ...
         %             [num2str(eyeTrial.saccade.amp(ii), '%2.0f'), 'deg, ', num2str(eyeTrial.saccade.duration(ii)*1000, '%3.0f'), 'ms'])
         %     end
-        legend([l1, l2, p1, p2], {'gaze in world', 'eye-in-head', 'blink onset', 'blink offset'}, 'box', 'off', 'location', 'best')
-    else
-        legend([l1 l2], {'gaze in world', 'eye-in-head'}, 'location', 'best', 'box', 'off');
+%         legend([l1, l2, p1, p2], {'gaze in world', 'eye-in-head', 'blink onset', 'blink offset'}, 'box', 'off', 'location', 'best')
     end
 
     if ~isempty(eyeTrial.saccade.onsetTime) % mark saccades if we have any
         line([min(time), max(time)], [eyeTrial.saccade.sacThres, eyeTrial.saccade.sacThres], 'LineStyle', '--') % saccade threshold for finding peaks
-        p1 = plot(eyeTrial.saccade.onsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltX(eyeTrial.saccade.onsetI), '*r');
-        p2 = plot(eyeTrial.saccade.offsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltX(eyeTrial.saccade.offsetI), '*g');
+        p1 = plot(time(eyeTrial.saccade.onsetI), eyeTrial.eyeTrace.velOriWorldFiltX(eyeTrial.saccade.onsetI), '*r');
+        p2 = plot(time(eyeTrial.saccade.offsetI), eyeTrial.eyeTrace.velOriWorldFiltX(eyeTrial.saccade.offsetI), '*g');
         %     for ii = 1:length(eyeTrial.saccade.offsetTime)
         %         text(eyeTrial.saccade.offsetTime(ii)-min(eyeTrial.eyeTrace.timestamp), ...
         %             eyeTrial.eyeTrace.velFilt(eyeTrial.saccade.offsetI(ii)), ...
@@ -37,10 +35,12 @@ if plotMode==0 % final result plots with saccades
 %         legend([p1, p2], {'saccade onset', 'saccade offset'}, 'box', 'off', 'location', 'best')
     end
 
+    legend([l1 l2], {'gaze in world', 'eye-in-head'}, 'location', 'best', 'box', 'off');
+
     xlabel('Time (s)')
     ylabel('Filtered horizontal gaze velocity (deg/s)')
     xlim(xRange)
-    % ylim(yRange)
+    ylim(yRange)
     hold off
 
     subplot(axSub(2)) % veritcal gaze vel
@@ -50,46 +50,42 @@ if plotMode==0 % final result plots with saccades
     %
     if ~isempty(eyeTrial.saccade.onsetTime) % mark saccades if we have any
         line([min(time), max(time)], [eyeTrial.saccade.sacThres, eyeTrial.saccade.sacThres], 'LineStyle', '--') % saccade threshold for finding peaks
-        p1 = plot(eyeTrial.saccade.onsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltY(eyeTrial.saccade.onsetI), '*r');
-        p2 = plot(eyeTrial.saccade.offsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltY(eyeTrial.saccade.offsetI), '*g');
+        p1 = plot(time(eyeTrial.saccade.onsetI), eyeTrial.eyeTrace.velOriWorldFiltY(eyeTrial.saccade.onsetI), '*r');
+        p2 = plot(time(eyeTrial.saccade.offsetI), eyeTrial.eyeTrace.velOriWorldFiltY(eyeTrial.saccade.offsetI), '*g');
         %     for ii = 1:length(eyeTrial.saccade.offsetTime)
         %         text(eyeTrial.saccade.offsetTime(ii)-min(eyeTrial.eyeTrace.timestamp), ...
         %             eyeTrial.eyeTrace.velFilt(eyeTrial.saccade.offsetI(ii)), ...
         %             [num2str(eyeTrial.saccade.amp(ii), '%2.0f'), 'deg, ', num2str(eyeTrial.saccade.duration(ii)*1000, '%3.0f'), 'ms'])
         %     end
-        legend([p1, p2], {'saccade onset', 'saccade offset'}, 'box', 'off', 'location', 'best')
+%         legend([p1, p2], {'saccade onset', 'saccade offset'}, 'box', 'off', 'location', 'best')
     end
     
     if ~isempty(eyeTrial.blink.onsetTime) % mark blinks if we have any
-        p1 = plot(eyeTrial.blink.onsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltY(max([eyeTrial.blink.onsetI-1, ones(size(eyeTrial.blink.onsetI))], [], 2)), 'or');
-        p2 = plot(eyeTrial.blink.offsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFiltY(...
+        p3 = plot(time(eyeTrial.blink.onsetI), eyeTrial.eyeTrace.velOriWorldFiltY(max([eyeTrial.blink.onsetI-1, ones(size(eyeTrial.blink.onsetI))], [], 2)), 'or');
+        p4 = plot(time(eyeTrial.blink.offsetI), eyeTrial.eyeTrace.velOriWorldFiltY(...
             min([eyeTrial.blink.offsetI+1, ones(size(eyeTrial.blink.onsetI)).*length(eyeTrial.eyeTrace.velOriWorldFiltY)], [], 2) ), 'og');
         %     for ii = 1:length(eyeTrial.saccade.offsetTime)
         %         text(eyeTrial.saccade.offsetTime(ii)-min(eyeTrial.eyeTrace.timestamp), ...
         %             eyeTrial.eyeTrace.velFilt(eyeTrial.saccade.offsetI(ii)), ...
         %             [num2str(eyeTrial.saccade.amp(ii), '%2.0f'), 'deg, ', num2str(eyeTrial.saccade.duration(ii)*1000, '%3.0f'), 'ms'])
         %     end
-%         legend([p1, p2], {'blink onset', 'blink offset'}, 'box', 'off', 'location', 'best')
+        legend([p1, p2, p3, p4], {'saccade onset', 'saccade offset', 'blink onset', 'blink offset'}, 'box', 'off', 'location', 'best')
     end 
 
     xlabel('Time (s)')
     ylabel('Filtered vertical gaze velocity (deg/s)')
     xlim(xRange)
-    % ylim(yRange)
+    ylim(yRange)
     hold off
 
     subplot(axSub(3)) % filtered gaze velocity plot
     plot(time, eyeTrial.eyeTrace.velOriWorldFilt2D)
     hold on
     plot(time, eyeTrial.eyeTrace.velOriHeadFilt2D, '--')
-    % add fixation duration detected
-    for ii = 1:length(eyeTrial.gazeFix.onsetTime)
-        plot(time(eyeTrial.gazeFix.onsetI(ii):eyeTrial.gazeFix.offsetI(ii)), eyeTrial.eyeTrace.velOriWorldFilt2D(eyeTrial.gazeFix.onsetI(ii):eyeTrial.gazeFix.offsetI(ii)), 'k-')
-    end
     %
     if ~isempty(eyeTrial.blink.onsetTime) % mark blinks if we have any
-        p3 = plot(eyeTrial.blink.onsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFilt2D(max([eyeTrial.blink.onsetI, ones(size(eyeTrial.blink.onsetI))], [], 2)), 'or');
-        p4 = plot(eyeTrial.blink.offsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFilt2D(...
+        p3 = plot(time(eyeTrial.blink.onsetI), eyeTrial.eyeTrace.velOriWorldFilt2D(max([eyeTrial.blink.onsetI, ones(size(eyeTrial.blink.onsetI))], [], 2)), 'or');
+        p4 = plot(time(eyeTrial.blink.offsetI), eyeTrial.eyeTrace.velOriWorldFilt2D(...
             min([eyeTrial.blink.offsetI, ones(size(eyeTrial.blink.onsetI)).*length(eyeTrial.eyeTrace.velOriWorldFilt2D)], [], 2) ), 'og');
         %     for ii = 1:length(eyeTrial.saccade.offsetTime)
         %         text(eyeTrial.saccade.offsetTime(ii)-min(eyeTrial.eyeTrace.timestamp), ...
@@ -100,20 +96,29 @@ if plotMode==0 % final result plots with saccades
 
     if ~isempty(eyeTrial.saccade.onsetTime) % mark saccades if we have any
         line([min(time), max(time)], [eyeTrial.saccade.sacThres, eyeTrial.saccade.sacThres], 'LineStyle', '--') % saccade threshold for finding peaks
-        p1 = plot(eyeTrial.saccade.onsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFilt2D(eyeTrial.saccade.onsetI), '*r');
-        p2 = plot(eyeTrial.saccade.offsetTime-min(eyeTrial.eyeTrace.timestamp), eyeTrial.eyeTrace.velOriWorldFilt2D(eyeTrial.saccade.offsetI), '*g');
-        %     for ii = 1:length(eyeTrial.saccade.offsetTime)
+        p1 = plot(time(eyeTrial.saccade.onsetI), eyeTrial.eyeTrace.velOriWorldFilt2D(eyeTrial.saccade.onsetI), '*r');
+        p2 = plot(time(eyeTrial.saccade.offsetI), eyeTrial.eyeTrace.velOriWorldFilt2D(eyeTrial.saccade.offsetI), '*g');
+        %         %     for ii = 1:length(eyeTrial.saccade.offsetTime)
         %         text(eyeTrial.saccade.offsetTime(ii)-min(eyeTrial.eyeTrace.timestamp), ...
         %             eyeTrial.eyeTrace.velFilt(eyeTrial.saccade.offsetI(ii)), ...
         %             [num2str(eyeTrial.saccade.amp(ii), '%2.0f'), 'deg, ', num2str(eyeTrial.saccade.duration(ii)*1000, '%3.0f'), 'ms'])
         %     end
-        legend([p1, p2], {'saccade onset', 'saccade offset'}, 'box', 'off', 'location', 'best')
+%         legend([p1, p2], {'saccade onset', 'saccade offset'}, 'box', 'off', 'location', 'best')
     end
+
+    % add fixation duration detected
+    if ~isempty(eyeTrial.gazeFix.onsetTime)
+        for ii = 1:length(eyeTrial.gazeFix.onsetTime)
+            p0 = plot(time(eyeTrial.gazeFix.onsetI(ii):eyeTrial.gazeFix.offsetI(ii)), eyeTrial.eyeTrace.velOriWorldFilt2D(eyeTrial.gazeFix.onsetI(ii):eyeTrial.gazeFix.offsetI(ii)), 'k-');
+        end
+        legend([p0], {'fixation'}, 'box', 'off', 'location', 'best')
+    end
+    line([min(time), max(time)], [30, 30], 'LineStyle', '--') % saccade threshold for finding peaks
 
     xlabel('Time (s)')
     ylabel('Filtered gaze 2D velocity (deg/s)')
     xlim(xRange)
-    %     ylim(yRange)
+    ylim ([0 yRange(2)])
     hold off
 
     %         subplot(axSub(3)) % filtered acceleration plot
@@ -133,8 +138,11 @@ if plotMode==0 % final result plots with saccades
 
 elseif plotMode==1 % plot head velocity... maybe start with Euler angles...
     % calculate head velocity in Euler angles
-    eulZYX = quat2eul([eyeTrial.headTrace.rotFiltQw eyeTrial.headTrace.rotFiltQx ...
-        eyeTrial.headTrace.rotFiltQy eyeTrial.headTrace.rotFiltQz])/pi*180;
+eulZYX = quat2eul([eyeTrial.headAligned.qW eyeTrial.headAligned.qX ...
+        eyeTrial.headAligned.qY eyeTrial.headAligned.qZ])/pi*180;
+
+%     eulZYX = quat2eul([eyeTrial.headTrace.rotFiltQw eyeTrial.headTrace.rotFiltQx ...
+%         eyeTrial.headTrace.rotFiltQy eyeTrial.headTrace.rotFiltQz])/pi*180.*(1./[diff(time); NaN]);
     
     subplot(axSub(1))
     plot(time, eulZYX(:, 3))
