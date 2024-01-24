@@ -38,12 +38,8 @@ if sum(iAll)>0 % there are unclassified chunks
     while ii<=length(startI)
         %     for ii = 1:length(startI)
         if timestamp(endI(ii))-timestamp(startI(ii))>=fixThres.dur % if duration is long enough to start with
-            if ismember('gazePosWorldFiltX', eyeTrace.Properties.VariableNames) % if we have gaze point coordinates in the world
-                gazePos = [eyeTrace.gazePosWorldFiltX(startI(ii):endI(ii)) eyeTrace.gazePosWorldFiltY(startI(ii):endI(ii)) eyeTrace.gazePosWorldFiltZ(startI(ii):endI(ii))];
-            else % if no gaze position in world data, just use gaze orientation in body
-                gazePos = [eyeTrace.gazeOriWorldFiltX(startI(ii):endI(ii)) ...
-                    eyeTrace.gazeOriWorldFiltY(startI(ii):endI(ii))];
-            end
+            gazeOri = [eyeTrace.gazeOriWorldFiltX(startI(ii):endI(ii)) ...
+                eyeTrace.gazeOriWorldFiltY(startI(ii):endI(ii))];
 
             startT = 1; %startI(ii);
             endT = min(find(timestamp-timestamp(startI(ii))>=fixThres.dur))-startI(ii)+1; %startT + ms2frame(fixThres.dur*1000, sampleRate)-2;
@@ -69,13 +65,8 @@ if sum(iAll)>0 % there are unclassified chunks
             end
             %}
             while startI(ii) + startT + endT - 1 < endI(ii)
-                window = gazePos(startT:endT + 1, :);
-                if size(gazePos, 2)==2 % 2D, retinal space
-                    rad = ( range(window(:, 1)) + range(window(:, 2)) )/2;
-                else % 3D coordinates in the world
-                    dist = sqrt(sum(window.^2, 2));
-                    rad = max(dist);
-                end
+                window = gazeOri(startT:endT + 1, :);
+                rad = (range(window(:, 1)) + range(window(:, 2))) / 2;
             
                 if rad <= fixThres.rad
                     endT = endT + 1;
