@@ -9,7 +9,7 @@ if ismember('posX', headData.Properties.VariableNames)
     filtFrequency = sampleRate;
     % can modify filtOrder and cutoff frequency according to your needs
     filtOrder = 4;
-    filtCutoff = 30;
+    filtCutoff = 60;
 
     headPosFilt = butterworthFilter([headData.posX, ...
         headData.posY, headData.posZ], ...
@@ -17,6 +17,7 @@ if ismember('posX', headData.Properties.VariableNames)
 end
 
 headOri = [headData.qW headData.qX headData.qY headData.qZ];
+
 % filter the orientations
 % The interpolation parameter to slerp is in the closed-interval [0,1], 
 % so the output of dist must be re-normalized to this range. However, 
@@ -53,12 +54,15 @@ for ii=2:numel(headOriQ)
 end
 % toc
 headOriFilt = compact(qout);
+oriZYXFilt = quat2eul(headOriFilt)/pi*180;
 
 % calculate rotation between frames--velocity
 q1 = headOriFilt(1:end-1, :);
 q2 = headOriFilt(2:end, :);
 q12 = quatmultiply(quatconj(q1),q2);
 rotQRaw = [q12; NaN(1, 4)];
+% calculate head velocity in Euler angles
+velZYXRaw = quat2eul(rotQRaw)/pi*180;
 
 % filter rotation again
 rotQ = quaternion(q12);
@@ -86,6 +90,7 @@ end
 qout = quatnormalize(qout);
 rotQFilt = [compact(qout); NaN(1, 4)];
 
+velZYXFilt = quat2eul(rotQFilt)/pi*180;
 
 % get rotation direction and velocity
 rotAng = 2*acosd(rotQFilt(1:end-1, 1)); %2 * atan2d(norm(q12(ii, 2:4)),q12(ii, 1)); % in degrees
@@ -99,8 +104,8 @@ if sampleRate<500
 else
     % use butterworth filter for smooth movements
     % can modify filtOrder and cutoff frequency according to your needs
-    filtOrder = 2;
-    filtCutoff =30;
+    filtOrder = 4;
+    filtCutoff = 60;
     filtFrequency = sampleRate;
 
     velFilt = butterworthFilter(vel, filtFrequency, filtOrder, filtCutoff);
@@ -146,10 +151,15 @@ end
 
 % only save the filtered data, raw data stored in "headAligned"
 if ismember('posX', headData.Properties.VariableNames)
-    headTrace = array2table([headPosFilt headOriFilt rotQFilt vel rotAxis velFilt headData.timestamp], ...
+    headTrace = array2table([headPosFilt headOriFilt oriZYXFilt rotQRaw velZYXRaw ...
+        rotQFilt velZYXFilt vel rotAxis velFilt headData.timestamp], ...
         'VariableNames', {'posFiltX', 'posFiltY', 'posFiltZ', ...
         'oriFiltQw', 'oriFiltQx', 'oriFiltQy', 'oriFiltQz', ...
+        'oriFilt_yaw', 'oriFilt_pitch', 'oriFilt_roll', ...
+        'rotRawQw', 'rotRawQx', 'rotRawQy', 'rotRawQz', ...
+        'velRaw_yaw', 'velRaw_pitch', 'velRaw_roll', ...
         'rotFiltQw', 'rotFiltQx', 'rotFiltQy', 'rotFiltQz', ...
+        'velFilt_yaw', 'velFilt_pitch', 'velFilt_roll', ...
         'rotVel3D', 'rotAxisX', 'rotAxisY', 'rotAxisZ', 'rotVel3DFilt', 'timestamp'});
 else
     headTrace = array2table([headOriFilt rotQFilt vel rotAxis velFilt headData.timestamp], ...

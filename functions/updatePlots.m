@@ -1,7 +1,7 @@
 function updatePlots(plotMode, eyeTrial, axSub, fig)
 set(0, 'CurrentFigure', fig)
-time = eyeTrial.eyeTrace.timestamp-min(eyeTrial.eyeTrace.timestamp);
-xRange = [333, 334]; %[time(1) time(end)]; %
+time = eyeTrial.headTrace.timestamp-min(eyeTrial.headTrace.timestamp);
+xRange = [0, 10]; %[time(1) time(end)]; %
 yRange = [-200 200]; % [-100 100];%
 
 if plotMode==0 % final result plots with saccades
@@ -131,49 +131,34 @@ if plotMode==0 % final result plots with saccades
     %         % ylim([-25000, 25000])
     %         hold off
 
-elseif plotMode==1 % plot head velocity... maybe start with Euler angles...
-    % calculate head velocity in Euler angles
-    eulZYX = quat2eul([eyeTrial.headTrace.rotFiltQw eyeTrial.headTrace.rotFiltQx ...
-        eyeTrial.headTrace.rotFiltQy eyeTrial.headTrace.rotFiltQz])/pi*180;
-    
+elseif plotMode==1 % plot raw & filtered head velocity traces, in Euler angles
     subplot(axSub(1))
-    plot(time, eulZYX(:, 3))
-    %     p1 = plot(time, eyeTrial.eyeTrace.velOriHeadFiltX(:, 1), '-');
-    %     hold on
-    %     line([min(xRange), max(xRange)], [0, 0], 'lineStyle', '--')
-    %     p2 = plot(time, eyeTrial.headTrace.displaceX(:, 1), '-');
-    %     legend([p1, p2], {'eye-in-head', 'head offset'}, 'box', 'off', 'location', 'best')
+    p1 = plot(time, eyeTrial.headTrace.velRaw_roll, '--');
+    hold on
+    p2 = plot(time, eyeTrial.headTrace.velFilt_roll, '-');
+    legend([p1, p2], {'raw', 'filtered'}, 'box', 'off', 'location', 'best')
     xlabel('Time (s)')
-    %     ylabel('Horizontal velocity (deg/s)')
     ylabel('Head roll velocity (deg/s)')
     xlim(xRange)
     %     ylim(yRange)
     hold off
 
     subplot(axSub(2))
-    plot(time, eulZYX(:, 2))
-    %     p1 = plot(time, eyeTrial.eyeTrace.velOriHeadFiltY(:, 1), '-');
-    %     hold on
-    %     line([min(xRange), max(xRange)], [0, 0], 'lineStyle', '--')
-    %     p2 = plot(time, eyeTrial.headTrace.displaceY(:, 1), '-');
-    %     legend([p1 p2], {'eye-in-head', 'head offset'}, 'box', 'off', 'location', 'best')
+    plot(time, eyeTrial.headTrace.velRaw_pitch, '--')
+    hold on
+    plot(time, eyeTrial.headTrace.velFilt_pitch, '-');
     xlabel('Time (s)')
-    %     ylabel('Vertical velocity (deg/s)')
     ylabel('Head pitch velocity (deg/s)')
     xlim(xRange)
     %     ylim(yRange)
     hold off
 
     subplot(axSub(3))
-    plot(time, eulZYX(:, 1))
-    %     p1 = plot(time, eyeTrial.eyeTrace.velOriHeadFilt2D(:, 1), '-');
-    %     hold on
-    %     line([min(xRange), max(xRange)], [0, 0], 'lineStyle', '--')
-    %     p2 = plot(time, eyeTrial.headTrace.displace2D(:, 1), '-');
-    %     legend([p1 p2], {'eye-in-head', 'head offset'}, 'box', 'off', 'location', 'best')
+    plot(time, eyeTrial.headTrace.velRaw_yaw, '--')
+    hold on
+    plot(time, eyeTrial.headTrace.velFilt_yaw, '-');
     xlabel('Time (s)')
     ylabel('Head yaw velocity (deg/s)')
-    %     ylabel('2D velocity (deg/s)')
     xlim(xRange)
     %     ylim(yRange)
     hold off
@@ -250,42 +235,76 @@ elseif plotMode==1 % plot head velocity... maybe start with Euler angles...
     %     ylabel('Y position')
     %     hold off
 
-elseif plotMode==2 % plots with raw & filtered velocity trace after getEyeTrace.m
+elseif plotMode==2 % plots with raw & filtered position trace
     % might also be useful when you have multiple filters and you want to check
-    % if each makes sense, or if acceleration looks good, edit as you need
     subplot(axSub(1))
-%     plot(time, eyeTrial.eyeAligned.gazeOriHeadX, '-')
-    plot(time, eyeTrial.eyeTrace.velOriHeadRawX, '-')
+    p1 = plot(time, eyeTrial.headAligned.ori_roll, '--');
     hold on
-    plot(time, eyeTrial.eyeTrace.velOriHeadFiltX, '--')
-% plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltX, '--')
-    legend({'Raw velocity', 'Filtered velocity'}) % now showing the eye-in-head velocities
+    p2 = plot(time, eyeTrial.headTrace.oriFilt_roll, '-');
+    legend([p1, p2], {'raw', 'filtered'}, 'box', 'off', 'location', 'best')
     xlabel('Time (s)')
-    ylabel('Vel from filtered horizontal pos (deg/s)')
+    ylabel('Head roll position (deg)')
     xlim(xRange)
+    %     ylim(yRange)
     hold off
 
     subplot(axSub(2))
-    plot(time, eyeTrial.eyeTrace.velOriHeadRawY, '-')
-% plot(time, eyeTrial.eyeAligned.gazeOriHeadY, '-')
+    plot(time, eyeTrial.headAligned.ori_pitch, '--')
     hold on
-    plot(time, eyeTrial.eyeTrace.velOriHeadFiltY, '--')
-% plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltY, '--')
-    legend({'Raw velocity', 'Filtered velocity'})
+    plot(time, eyeTrial.headTrace.oriFilt_pitch, '-');
     xlabel('Time (s)')
-    ylabel('Vel from filtered vertical pos (deg/s)')
+    ylabel('Head pitch position (deg)')
     xlim(xRange)
+    %     ylim(yRange)
     hold off
 
     subplot(axSub(3))
-    plot(time, eyeTrial.eyeTrace.velOriHeadRaw2D, '-')
+    plot(time, eyeTrial.headAligned.ori_yaw, '--')
     hold on
-    plot(time, eyeTrial.eyeTrace.velOriHeadFilt2D, '--')
-    legend({'Raw velocity', 'Filtered velocity'})
+    plot(time, eyeTrial.headTrace.oriFilt_yaw, '-');
     xlabel('Time (s)')
-%     ylabel('2D velocity (deg/s)')
+    ylabel('Head yaw position (deg)')
     xlim(xRange)
+    %     ylim(yRange)
     hold off
+
+
+
+    
+%     % if each makes sense, or if acceleration looks good, edit as you need
+%     subplot(axSub(1))
+% %     plot(time, eyeTrial.eyeAligned.gazeOriHeadX, '-')
+%     plot(time, eyeTrial.eyeTrace.velOriHeadRawX, '-')
+%     hold on
+%     plot(time, eyeTrial.eyeTrace.velOriHeadFiltX, '--')
+% % plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltX, '--')
+%     legend({'Raw velocity', 'Filtered velocity'}) % now showing the eye-in-head velocities
+%     xlabel('Time (s)')
+%     ylabel('Vel from filtered horizontal pos (deg/s)')
+%     xlim(xRange)
+%     hold off
+% 
+%     subplot(axSub(2))
+%     plot(time, eyeTrial.eyeTrace.velOriHeadRawY, '-')
+% % plot(time, eyeTrial.eyeAligned.gazeOriHeadY, '-')
+%     hold on
+%     plot(time, eyeTrial.eyeTrace.velOriHeadFiltY, '--')
+% % plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltY, '--')
+%     legend({'Raw velocity', 'Filtered velocity'})
+%     xlabel('Time (s)')
+%     ylabel('Vel from filtered vertical pos (deg/s)')
+%     xlim(xRange)
+%     hold off
+% 
+%     subplot(axSub(3))
+%     plot(time, eyeTrial.eyeTrace.velOriHeadRaw2D, '-')
+%     hold on
+%     plot(time, eyeTrial.eyeTrace.velOriHeadFilt2D, '--')
+%     legend({'Raw velocity', 'Filtered velocity'})
+%     xlabel('Time (s)')
+% %     ylabel('2D velocity (deg/s)')
+%     xlim(xRange)
+%     hold off
 
 elseif plotMode==3 % open a new figure for 2d position data only, can see better in this case rather than the subplots
     set(0, 'units', 'pixels')
