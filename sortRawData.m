@@ -47,8 +47,8 @@ for trialI = 1:length(fileName) % assuming each file is recording of one "trial"
     % raw data coordinate system is Oculus (head):
     % x+=right, y+=up, z+=backward, left-handed rotation.
     % flip to Matlab plot3 convention, x+=forward, y+=left, z+=up, right-handed 
-    headOriQ = [-dataRaw.data_for_xw.head_rot_wxyz(:, 1) -dataRaw.data_for_xw.head_rot_wxyz(:, 3) ...
-        -dataRaw.data_for_xw.head_rot_wxyz(:, 2) dataRaw.data_for_xw.head_rot_wxyz(:, 2)];
+    headOriQ = [-dataRaw.data_for_xw.head_rot_wxyz(:, 1) -dataRaw.data_for_xw.head_rot_wxyz(:, 4) ...
+        -dataRaw.data_for_xw.head_rot_wxyz(:, 2) dataRaw.data_for_xw.head_rot_wxyz(:, 3)];
     headPos = [-dataRaw.data_for_xw.head_trans_xyz(:, 3) -dataRaw.data_for_xw.head_trans_xyz(:, 1) dataRaw.data_for_xw.head_trans_xyz(:, 2)];
     timestamp = dataRaw.data_for_xw.timestamp; % in seconds
     % calculate head position in Euler angles
