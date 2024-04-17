@@ -66,8 +66,8 @@ vorThres.head = 5;
 tic;
 
 % Iterate through user sessions (i.e., table rows).
-for i = height(all_user_info):-1:1
-    try
+for i = height(all_user_info):-1:1 % i = 1:height(all_user_info) %
+    %try
         % If you are skipping already processed users, uncomment this
         % This user has been processed before
 
@@ -88,9 +88,9 @@ for i = height(all_user_info):-1:1
         fprintf('Analyzing session %d for user %s\n', all_user_info.Session(i), all_user_info.UserID(i));
     
         % You can jump users based on ID, as always
-        if (str2double(all_user_info.UserID{i}) > 900)
-          continue
-        end
+        % if (str2double(all_user_info.UserID{i}) == 7 || str2double(all_user_info.UserID{i}) == 15 || str2double(all_user_info.UserID{i}) == 20 || str2double(all_user_info.UserID{i}) == 24 || str2double(all_user_info.UserID{i}) == 40)
+        %  continue
+        % end
     
     
         %% START ANALYZING TRIAL
@@ -124,22 +124,25 @@ for i = height(all_user_info):-1:1
 
         % Take the last OK timestamp and substract X mins
         % In this case, we take the last 10 minutes
-        minsToApply = 600;      
+        minsToApply = 182;      
         % We want to keep only the data for the first chunk
         eyeTrial.headAligned = eyeTrial.headAligned(zeroIndices(end):end, :);
         eyeTrial.eyeAligned = eyeTrial.eyeAligned(zeroIndices(end):end, :);
-        % Start with the last not-NaN row, otherwise we can be losing information
-        last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
-        timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
-        % Calculate where to start from to get all those X minutes
-        init_ten_sec_timestamps = timestamp_to_end - minsToApply;  
+%         % Start with the last not-NaN row, otherwise we can be losing information
+%         last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
+%         timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
+%         % Calculate where to start from to get all those X minutes
+%         init_ten_sec_timestamps = timestamp_to_end - minsToApply;  
+        first_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1);
+        timestamp_to_start = eyeTrial.headAligned.timestamp(first_non_nan_row);
+        timestamp_to_end = timestamp_to_start + minsToApply;
         % Get only the corresponding information from your trial (head)
-        if ~isempty(eyeTrial.headAligned(eyeTrial.headAligned.timestamp >= init_ten_sec_timestamps & eyeTrial.headAligned.timestamp <= timestamp_to_end, :))
-            eyeTrial.headAligned = eyeTrial.headAligned(eyeTrial.headAligned.timestamp >= init_ten_sec_timestamps & eyeTrial.headAligned.timestamp <= timestamp_to_end, :);
+        if ~isempty(eyeTrial.headAligned(eyeTrial.headAligned.timestamp >= timestamp_to_start & eyeTrial.headAligned.timestamp <= timestamp_to_end, :))
+            eyeTrial.headAligned = eyeTrial.headAligned(eyeTrial.headAligned.timestamp >= timestamp_to_start & eyeTrial.headAligned.timestamp <= timestamp_to_end, :);
         end
         % Get only the corresponding information from your trial (eye)
-        if ~isempty(eyeTrial.eyeAligned(eyeTrial.eyeAligned.timestamp >= init_ten_sec_timestamps & eyeTrial.eyeAligned.timestamp <= timestamp_to_end, :))
-            eyeTrial.eyeAligned = eyeTrial.eyeAligned(eyeTrial.eyeAligned.timestamp >= init_ten_sec_timestamps & eyeTrial.eyeAligned.timestamp <= timestamp_to_end, :);
+        if ~isempty(eyeTrial.eyeAligned(eyeTrial.eyeAligned.timestamp >= timestamp_to_start & eyeTrial.eyeAligned.timestamp <= timestamp_to_end, :))
+            eyeTrial.eyeAligned = eyeTrial.eyeAligned(eyeTrial.eyeAligned.timestamp >= timestamp_to_start & eyeTrial.eyeAligned.timestamp <= timestamp_to_end, :);
         end
     
         % Note: In some cases, it can happen that since you are taking a
@@ -415,6 +418,7 @@ for i = height(all_user_info):-1:1
         all_user_info.SaccadeInfo{i}.peakVelHead = sacStats.peakVelHead;
         all_user_info.SaccadeInfo{i}.duration = sacStats.duration;
     
+        %{
         % Sanity checks!
         % Remove extremely wide saccades
         all_user_info.SaccadeInfo{i}.amp = ...
@@ -457,7 +461,7 @@ for i = height(all_user_info):-1:1
                 all_user_info.SaccadeInfo{i}.peakVelHead >= 0 & ...
                 all_user_info.SaccadeInfo{i}.peakVelHead <= 1000 ...
             );
-     
+        %}
         
         % =========================================== %
         % ++++++++++++++ BLINK ANALYSIS +++++++++++++ %
@@ -542,14 +546,17 @@ for i = height(all_user_info):-1:1
 
         % We now getting the last 5 minutes, same as commented before.
         % See comments from previous code for info.
-        minsToApply = 300;
+        minsToApply = 182;
         % We want to keep only the data for the first chunk
         eyeTrial.headAligned = eyeTrial.headAligned(1:zeroIndices(2)-1, :);
         eyeTrial.eyeAligned = eyeTrial.eyeAligned(1:zeroIndices(2)-1, :);
         % Start with the last not-NaN row, otherwise we can be losing information
-        last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
-        timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
-        timestamp_to_start = timestamp_to_end - minsToApply;
+%         last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
+%         timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
+%         timestamp_to_start = timestamp_to_end - minsToApply;
+        first_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1);
+        timestamp_to_start = eyeTrial.headAligned.timestamp(first_non_nan_row);
+        timestamp_to_end = timestamp_to_start + minsToApply;
 
         if ~isempty(eyeTrial.headAligned(eyeTrial.headAligned.timestamp <= timestamp_to_end & eyeTrial.headAligned.timestamp >= timestamp_to_start, :))
             eyeTrial.headAligned = eyeTrial.headAligned(eyeTrial.headAligned.timestamp <= timestamp_to_end & eyeTrial.headAligned.timestamp >= timestamp_to_start, :);
@@ -734,6 +741,59 @@ for i = height(all_user_info):-1:1
         all_user_info.CH20_saccade{i} = eyeTrial.saccade;
         all_user_info.CH20_classID{i} = eyeTrial.classID;
 
+        % =========================================== %
+        % ++++++++++++ SACCADE ANALYSIS +++++++++++++ %
+        % =========================================== %
+        
+        tot_sac = size(eyeTrial.saccade.onsetTime, 1) - 1;          % Remove first one
+        dur_sac = eyeTrial.saccade.offsetTime - eyeTrial.saccade.onsetTime;
+    
+        % Sanity checks!
+        % Remove extremely long saccades (>0.5 sec)
+        dur_sac = dur_sac( ...
+                dur_sac >= 0 & ...
+                dur_sac <= 0.5 ...
+            );
+    
+        avg_sac_dur = nanmean(dur_sac(2:end));                         % Remove first one
+        sac_per_sec = tot_sac / (eyeTrial.saccade.offsetTime(end) - eyeTrial.saccade.offsetTime(1));
+        fprintf(['\n============ SACCADES ============\n' ...
+            'A total of %d saccades were found.\n' ...
+            'On average, %.2f saccades per second.\n' ...
+            'Average saccade duration of %0.2f seconds.\n'], ...
+            tot_sac, ...
+            sac_per_sec, ...
+            avg_sac_dur);
+        fprintf(['\n======== SACCADES (proc.) ========\n' ...
+            'Mean amplitude:\t\t\t%0.2f\n' ...
+            'Mean amplitude (Head):\t%0.2f\n' ...
+            'Mean velocity:\t\t\t%0.2f\n' ...
+            'Mean velocity (Head):\t%0.2f\n' ...
+            'Peak velocity:\t\t\t%0.2f\n' ...
+            'Peak velocity (Head):\t%0.2f\n' ...
+            'Duration:\t\t\t\t%0.2f\n'], ...
+            nanmean(sacStats.amp, 1), ...
+            nanmean(sacStats.ampInHead, 1), ...
+            nanmean(sacStats.meanVel, 1), ...
+            nanmean(sacStats.meanVelHead, 1), ...
+            nanmean(sacStats.peakVel, 1), ...
+            nanmean(sacStats.peakVelHead, 1), ...
+            nanmean(sacStats.duration));
+        
+        all_user_info.CH20_SaccadeInfo{i} = struct();
+        all_user_info.CH20_SaccadeInfo{i}.tot_sac = tot_sac;
+        all_user_info.CH20_SaccadeInfo{i}.dur_sac = dur_sac;
+        all_user_info.CH20_SaccadeInfo{i}.avg_sac_dur = avg_sac_dur;
+        all_user_info.CH20_SaccadeInfo{i}.sac_per_sec = sac_per_sec;
+        all_user_info.CH20_SaccadeInfo{i}.amp = sacStats.amp;
+        all_user_info.CH20_SaccadeInfo{i}.ampInHead = sacStats.ampInHead;
+        all_user_info.CH20_SaccadeInfo{i}.meanVel = sacStats.meanVel;
+        all_user_info.CH20_SaccadeInfo{i}.meanVelHead = sacStats.meanVelHead;
+        all_user_info.CH20_SaccadeInfo{i}.peakVel = sacStats.peakVel;
+        all_user_info.CH20_SaccadeInfo{i}.peakVelHead = sacStats.peakVelHead;
+        all_user_info.CH20_SaccadeInfo{i}.duration = sacStats.duration;
+    
+
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %%%%% -------------> 5 LAST MINUTES OF 40 CHUNK <------------- %%%%%%%
@@ -746,14 +806,17 @@ for i = height(all_user_info):-1:1
         
         % We now getting the last 5 minutes, same as commented before.
         % See comments from previous code for info.
-        minsToApply = 300;
+        minsToApply = 182;
         % We want to keep only the data for the first chunk
         eyeTrial.headAligned = eyeTrial.headAligned(zeroIndices(2):zeroIndices(3)-1, :);
         eyeTrial.eyeAligned = eyeTrial.eyeAligned(zeroIndices(2):zeroIndices(3)-1, :);
         % Start with the last not-NaN row, otherwise we can be losing information
-        last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
-        timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
-        timestamp_to_start = timestamp_to_end - minsToApply;
+%         last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
+%         timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
+%         timestamp_to_start = timestamp_to_end - minsToApply;
+        first_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1);
+        timestamp_to_start = eyeTrial.headAligned.timestamp(first_non_nan_row);
+        timestamp_to_end = timestamp_to_start + minsToApply;
 
         if ~isempty(eyeTrial.headAligned(eyeTrial.headAligned.timestamp <= timestamp_to_end & eyeTrial.headAligned.timestamp >= timestamp_to_start, :))
             eyeTrial.headAligned = eyeTrial.headAligned(eyeTrial.headAligned.timestamp <= timestamp_to_end & eyeTrial.headAligned.timestamp >= timestamp_to_start, :);
@@ -937,7 +1000,60 @@ for i = height(all_user_info):-1:1
         all_user_info.CH40_gazeFix{i} = eyeTrial.gazeFix;
         all_user_info.CH40_saccade{i} = eyeTrial.saccade;
         all_user_info.CH40_classID{i} = eyeTrial.classID;
+
+        % =========================================== %
+        % ++++++++++++ SACCADE ANALYSIS +++++++++++++ %
+        % =========================================== %
+        
+        tot_sac = size(eyeTrial.saccade.onsetTime, 1) - 1;          % Remove first one
+        dur_sac = eyeTrial.saccade.offsetTime - eyeTrial.saccade.onsetTime;
     
+        % Sanity checks!
+        % Remove extremely long saccades (>0.5 sec)
+        dur_sac = dur_sac( ...
+                dur_sac >= 0 & ...
+                dur_sac <= 0.5 ...
+            );
+    
+        avg_sac_dur = nanmean(dur_sac(2:end));                         % Remove first one
+        sac_per_sec = tot_sac / (eyeTrial.saccade.offsetTime(end) - eyeTrial.saccade.offsetTime(1));
+        fprintf(['\n============ SACCADES ============\n' ...
+            'A total of %d saccades were found.\n' ...
+            'On average, %.2f saccades per second.\n' ...
+            'Average saccade duration of %0.2f seconds.\n'], ...
+            tot_sac, ...
+            sac_per_sec, ...
+            avg_sac_dur);
+        fprintf(['\n======== SACCADES (proc.) ========\n' ...
+            'Mean amplitude:\t\t\t%0.2f\n' ...
+            'Mean amplitude (Head):\t%0.2f\n' ...
+            'Mean velocity:\t\t\t%0.2f\n' ...
+            'Mean velocity (Head):\t%0.2f\n' ...
+            'Peak velocity:\t\t\t%0.2f\n' ...
+            'Peak velocity (Head):\t%0.2f\n' ...
+            'Duration:\t\t\t\t%0.2f\n'], ...
+            nanmean(sacStats.amp, 1), ...
+            nanmean(sacStats.ampInHead, 1), ...
+            nanmean(sacStats.meanVel, 1), ...
+            nanmean(sacStats.meanVelHead, 1), ...
+            nanmean(sacStats.peakVel, 1), ...
+            nanmean(sacStats.peakVelHead, 1), ...
+            nanmean(sacStats.duration));
+        
+        all_user_info.CH40_SaccadeInfo{i} = struct();
+        all_user_info.CH40_SaccadeInfo{i}.tot_sac = tot_sac;
+        all_user_info.CH40_SaccadeInfo{i}.dur_sac = dur_sac;
+        all_user_info.CH40_SaccadeInfo{i}.avg_sac_dur = avg_sac_dur;
+        all_user_info.CH40_SaccadeInfo{i}.sac_per_sec = sac_per_sec;
+        all_user_info.CH40_SaccadeInfo{i}.amp = sacStats.amp;
+        all_user_info.CH40_SaccadeInfo{i}.ampInHead = sacStats.ampInHead;
+        all_user_info.CH40_SaccadeInfo{i}.meanVel = sacStats.meanVel;
+        all_user_info.CH40_SaccadeInfo{i}.meanVelHead = sacStats.meanVelHead;
+        all_user_info.CH40_SaccadeInfo{i}.peakVel = sacStats.peakVel;
+        all_user_info.CH40_SaccadeInfo{i}.peakVelHead = sacStats.peakVelHead;
+        all_user_info.CH40_SaccadeInfo{i}.duration = sacStats.duration;
+    
+        
 
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %%%%% -------------> 5 LAST MINUTES OF 60 CHUNK <------------- %%%%%%%
@@ -950,14 +1066,17 @@ for i = height(all_user_info):-1:1
 
         % We now getting the last 5 minutes, same as commented before.
         % See comments from previous code for info.
-        minsToApply = 300;
+        minsToApply = 182;
         % We want to keep only the data for the first chunk
         eyeTrial.headAligned = eyeTrial.headAligned(zeroIndices(3):zeroIndices(end)-1, :);
         eyeTrial.eyeAligned = eyeTrial.eyeAligned(zeroIndices(3):zeroIndices(end)-1, :);
         % Start with the last not-NaN row, otherwise we can be losing information
-        last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
-        timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
-        timestamp_to_start = timestamp_to_end - minsToApply;
+%         last_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1, 'last');
+%         timestamp_to_end = eyeTrial.headAligned.timestamp(last_non_nan_row);
+%         timestamp_to_start = timestamp_to_end - minsToApply;
+        first_non_nan_row = find(~any(isnan(eyeTrial.headAligned.qW), 2), 1);
+        timestamp_to_start = eyeTrial.headAligned.timestamp(first_non_nan_row);
+        timestamp_to_end = timestamp_to_start + minsToApply;
 
         if ~isempty(eyeTrial.headAligned(eyeTrial.headAligned.timestamp <= timestamp_to_end & eyeTrial.headAligned.timestamp >= timestamp_to_start, :))
             eyeTrial.headAligned = eyeTrial.headAligned(eyeTrial.headAligned.timestamp <= timestamp_to_end & eyeTrial.headAligned.timestamp >= timestamp_to_start, :);
@@ -1142,7 +1261,60 @@ for i = height(all_user_info):-1:1
         all_user_info.CH60_saccade{i} = eyeTrial.saccade;
         all_user_info.CH60_classID{i} = eyeTrial.classID;      
 
+        % =========================================== %
+        % ++++++++++++ SACCADE ANALYSIS +++++++++++++ %
+        % =========================================== %
+        
+        tot_sac = size(eyeTrial.saccade.onsetTime, 1) - 1;          % Remove first one
+        dur_sac = eyeTrial.saccade.offsetTime - eyeTrial.saccade.onsetTime;
+    
+        % Sanity checks!
+        % Remove extremely long saccades (>0.5 sec)
+        dur_sac = dur_sac( ...
+                dur_sac >= 0 & ...
+                dur_sac <= 0.5 ...
+            );
+    
+        avg_sac_dur = nanmean(dur_sac(2:end));                         % Remove first one
+        sac_per_sec = tot_sac / (eyeTrial.saccade.offsetTime(end) - eyeTrial.saccade.offsetTime(1));
+        fprintf(['\n============ SACCADES ============\n' ...
+            'A total of %d saccades were found.\n' ...
+            'On average, %.2f saccades per second.\n' ...
+            'Average saccade duration of %0.2f seconds.\n'], ...
+            tot_sac, ...
+            sac_per_sec, ...
+            avg_sac_dur);
+        fprintf(['\n======== SACCADES (proc.) ========\n' ...
+            'Mean amplitude:\t\t\t%0.2f\n' ...
+            'Mean amplitude (Head):\t%0.2f\n' ...
+            'Mean velocity:\t\t\t%0.2f\n' ...
+            'Mean velocity (Head):\t%0.2f\n' ...
+            'Peak velocity:\t\t\t%0.2f\n' ...
+            'Peak velocity (Head):\t%0.2f\n' ...
+            'Duration:\t\t\t\t%0.2f\n'], ...
+            nanmean(sacStats.amp, 1), ...
+            nanmean(sacStats.ampInHead, 1), ...
+            nanmean(sacStats.meanVel, 1), ...
+            nanmean(sacStats.meanVelHead, 1), ...
+            nanmean(sacStats.peakVel, 1), ...
+            nanmean(sacStats.peakVelHead, 1), ...
+            nanmean(sacStats.duration));
+        
+        all_user_info.CH60_SaccadeInfo{i} = struct();
+        all_user_info.CH60_SaccadeInfo{i}.tot_sac = tot_sac;
+        all_user_info.CH60_SaccadeInfo{i}.dur_sac = dur_sac;
+        all_user_info.CH60_SaccadeInfo{i}.avg_sac_dur = avg_sac_dur;
+        all_user_info.CH60_SaccadeInfo{i}.sac_per_sec = sac_per_sec;
+        all_user_info.CH60_SaccadeInfo{i}.amp = sacStats.amp;
+        all_user_info.CH60_SaccadeInfo{i}.ampInHead = sacStats.ampInHead;
+        all_user_info.CH60_SaccadeInfo{i}.meanVel = sacStats.meanVel;
+        all_user_info.CH60_SaccadeInfo{i}.meanVelHead = sacStats.meanVelHead;
+        all_user_info.CH60_SaccadeInfo{i}.peakVel = sacStats.peakVel;
+        all_user_info.CH60_SaccadeInfo{i}.peakVelHead = sacStats.peakVelHead;
+        all_user_info.CH60_SaccadeInfo{i}.duration = sacStats.duration;
+    
 
+        %{
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %%%%% -------------> FIRST 5 MINUTES OF SESSION <-------------- %%%%%%%
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1345,16 +1517,19 @@ for i = height(all_user_info):-1:1
         all_user_info.CH05_gazeFix{i} = eyeTrial.gazeFix;
         all_user_info.CH05_saccade{i} = eyeTrial.saccade;
         all_user_info.CH05_classID{i} = eyeTrial.classID;
+        %}
 
-    catch exception
+    %catch exception
        % Some errors can happen (although they shouldn't)...
        % If any error happens, then you can run this gain with the
        % "skipping previously load users" thing and just focus on the
        % remaining ones...
-       fprintf(['\n ERROR for %s, session %d. '], ...
-           all_user_info.UserID{i}, ...
-           all_user_info.Session(i));
-    end
+       %fprintf(['\n ERROR for %s, session %d. '], ...
+       %    all_user_info.UserID{i}, ...
+        %   all_user_info.Session(i));
+
+       %disp(exception);
+    %end
 end
 
 % Just for performance check
@@ -1372,4 +1547,4 @@ small_all_user_info = all_user_info;
 for i = 1:height(all_user_info)
     small_all_user_info.EyeTrial{i} = [];
 end
-save(['data\post_processed\study2\S2-small-post-data.mat'], 'small_all_user_info', '-v7.3');
+save(['data\post_processed\study2\S2-small-post-data_first2min.mat'], 'small_all_user_info', '-v7.3');

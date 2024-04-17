@@ -13,19 +13,152 @@ close all;
 addpath(genpath('functions'))
 tic;
 
+
+
+% ============================================================================ % 
+% ============================================================================ % 
+% ================== STATISTICAL ANALYSES FOR SURVEY DATA ==================== %
+% ============================================================================ % 
+% ============================================================================ %
+
+% Read data
+survey_data = readtable('data/survey/Study2_PrePostData_Processed.csv');
+rows_to_keep = ismember(survey_data.CompletionTime, 'Session end');
+survey_data = survey_data(rows_to_keep, :);
+survey_data = sortrows(survey_data, {'ParticipantID', 'Condition'});
+survey_data = survey_data(survey_data.ParticipantID ~= 11, :);
+disp('Survey data has been read.');
+SSQ_totalSubscale0 = survey_data.SSQ_totalSubscale(strcmp(survey_data.Condition, 'ETDDC OFF'))';
+SSQ_totalSubscale1 = survey_data.SSQ_totalSubscale(strcmp(survey_data.Condition, 'ETDDC ON'))';
+VIMSSQ_total0 = survey_data.VIMSSQ_total(strcmp(survey_data.Condition, 'ETDDC OFF'))';
+VIMSSQ_total1 = survey_data.VIMSSQ_total(strcmp(survey_data.Condition, 'ETDDC ON'))';
+% Merge for statistical analyses
+SSQ_totalSubscale = [SSQ_totalSubscale0, SSQ_totalSubscale1]';
+VIMSSQ_total = [VIMSSQ_total0, VIMSSQ_total1]';
+subjects_OFF = survey_data.ParticipantID(1:2:end-1)';
+subjects_ON =  survey_data.ParticipantID(2:2:end)';
+subjects = [subjects_OFF subjects_ON]';
+group = [zeros(1, numel(SSQ_totalSubscale0)), ones(1, numel(SSQ_totalSubscale1))]';
+
+% Read in-session data
+survey_data_session = readtable('data/survey/Study2_DuringSessionData_Processed.csv');
+survey_data_session = survey_data_session(survey_data_session.ParticipantID ~= 11, :);
+rows_to_keep = ~ismember(survey_data_session.TimeOfSurveyCompletion, 'Post-session');
+survey_data_session = survey_data_session(rows_to_keep, :);
+columnsToKeep = {'ParticipantID', 'Condition', 'TimeOfSurveyCompletion', 'MiseryScale', 'CVSQ_EyeStrainNumeric', 'CVSQ_ClarityofVisionNumeric'};
+survey_data_session = survey_data_session(:, columnsToKeep);
+
+textToNumberMap = containers.Map({'No problems', ...
+    'Uneasiness (no typical symptoms)', ...
+    'Vague dizziness, warmth, headache, stomach awareness, and/or sweating', ...
+    'Slight dizziness, warmth, headache, stomach awareness, and/or sweating', ...
+    'Fair dizziness, warmth, headache, stomach awareness, and/or sweating', ...
+    'Severe dizziness, warmth, headache, stomach awareness, and/or sweating', ...
+    'Slight nausea', ...
+    'Fair nausea', ...
+    'Near (retching) nausea', ...
+    }, ...
+    [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+survey_data_session.MiseryScale = cellfun(@(x) textToNumberMap(x), survey_data_session.MiseryScale);
+
+textToNumberMap = containers.Map({'Session start', ...
+    '10 minutes into session', ...
+    '20 minutes into session', ...
+    '30 minutes into session', ...
+    '40 minutes into session', ...
+    '50 minutes into session', ...
+    '60 minutes into session', ...
+    '70 minutes into session', ...
+    'Session end' ...
+    }, ...
+    [0, 1, 2, 3, 4, 5, 6, 7, 8]);
+survey_data_session.TimeOfSurveyCompletion = cellfun(@(x) textToNumberMap(x), survey_data_session.TimeOfSurveyCompletion);
+
+textToNumberMap = containers.Map({'ETDDC OFF', ...
+    'ETDDC ON', ...
+    }, ...
+    [0, 1]);
+survey_data_session.Condition = cellfun(@(x) textToNumberMap(x), survey_data_session.Condition);
+survey_data_session_participants = unique(survey_data_session.ParticipantID);
+rows_to_keep = ismember(survey_data.ParticipantID, survey_data_session_participants);
+s_aux = survey_data(rows_to_keep, :);
+s_aux = s_aux(1:2:end, :);
+s_aux = repelem(s_aux.VIMSSQ_total, 18);
+survey_data_session.VIMSSQ_total = s_aux;
+
+% Analyze data
+dirPath = 'results/study2/surveyStats/';
+if exist(dirPath, 'dir') ~= 7
+    mkdir(dirPath);
+    disp(['[MKDIR] Directory created: ' dirPath]);
+end
+
+data_table = table(SSQ_totalSubscale, group, VIMSSQ_total, subjects);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + VIMSSQ_total + VIMSSQ_total:group + (1 | subjects)');
+analyzeGlmeEffects(glme, data_table, 'group', 'VIMSSQ_total', NaN, [dirPath 'SSQ_VIMSQ_'], 'ET-DDC Off', 'ET-DDC On', 3);
+
+% Prepare in-session analyses
+data_table = table(survey_data_session.MiseryScale, ...
+                    survey_data_session.Condition, ...
+                    survey_data_session.TimeOfSurveyCompletion, ...
+                    survey_data_session.VIMSSQ_total, ...
+                    survey_data_session.ParticipantID, ...
+                    'VariableNames', {'MiseryScale', 'Condition', 'TimeOfSurveyCompletion', 'VIMSSQ_total', 'ParticipantID'});
+glme = fitglme(data_table, 'MiseryScale ~ 1 + Condition*TimeOfSurveyCompletion*VIMSSQ_total + (1 | ParticipantID)');
+analyzeGlmeEffects(glme, data_table, 'Condition', 'TimeOfSurveyCompletion', 'VIMSSQ_total', [dirPath 'MiseryScale_'], 'ET-DDC Off', 'ET-DDC On', 4);
+
+data_table = table(survey_data_session.CVSQ_EyeStrainNumeric, ...
+                    survey_data_session.Condition, ...
+                    survey_data_session.TimeOfSurveyCompletion, ...
+                    survey_data_session.VIMSSQ_total, ...
+                    survey_data_session.ParticipantID, ...
+                    'VariableNames', {'CVSQ_EyeStrainNumeric', 'Condition', 'TimeOfSurveyCompletion', 'VIMSSQ_total', 'ParticipantID'});
+glme = fitglme(data_table, 'CVSQ_EyeStrainNumeric ~ 1 + Condition*TimeOfSurveyCompletion*VIMSSQ_total + (1 | ParticipantID)');
+analyzeGlmeEffects(glme, data_table, 'Condition', 'TimeOfSurveyCompletion', 'VIMSSQ_total', [dirPath 'CVSQ_EyeStrainNumeric_'], 'ET-DDC Off', 'ET-DDC On', 4);
+
+data_table = table(survey_data_session.CVSQ_ClarityofVisionNumeric, ...
+                    survey_data_session.Condition, ...
+                    survey_data_session.TimeOfSurveyCompletion, ...
+                    survey_data_session.VIMSSQ_total, ...
+                    survey_data_session.ParticipantID, ...
+                    'VariableNames', {'CVSQ_ClarityofVisionNumeric', 'Condition', 'TimeOfSurveyCompletion', 'VIMSSQ_total', 'ParticipantID'});
+glme = fitglme(data_table, 'CVSQ_ClarityofVisionNumeric ~ 1 + Condition*TimeOfSurveyCompletion*VIMSSQ_total + (1 | ParticipantID)');
+analyzeGlmeEffects(glme, data_table, 'Condition', 'TimeOfSurveyCompletion', 'VIMSSQ_total', [dirPath 'CVSQ_ClarityofVisionNumeric_'], 'ET-DDC Off', 'ET-DDC On', 4);
+
+
+
+
+
+
+
+disp('Analyses run!');
+
+
+
+
+% ============================================================================ % 
+% ============================================================================ % 
+% ==================== STATISTICAL ANALYSES FOR ET DATA ====================== %
+% ============================================================================ % 
+% ============================================================================ %
+
+
+
+
+
 % Read the post-processed file from processAllData.m
-if isfile(['data\post_processed\study2\S2-small-post-data.mat']) 
-  load(['data\post_processed\study2\S2-small-post-data.mat'])
-  all_user_info = small_all_user_info;
+if isfile(['data\post_processed\study2\S2-small-post-data_first2min.mat']) 
+   load(['data\post_processed\study2\S2-small-post-data_first2min.mat'])
+   all_user_info = small_all_user_info;
 end
 
 % Read survey info.
 % Please note that for this survey, data is slightly hard-coded. Surveys
 % can vary, although misery scales, SSQ, etc. should be similar (if not
 % identical) if following same standards...
-survey_data = readtable('data/survey/PSHourglass_PrePostData_Study1.csv');
+survey_data = readtable('data/survey/Study2_PrePostData_Processed.csv');
 % Order  both data sets similarly, to ensure a pair-wise relation
-survey_data = sortrows(survey_data, {'ParticipantID', 'Condition'});
+% survey_data = sortrows(survey_data, {'ParticipantID', 'Condition'});
 all_user_info = sortrows(all_user_info, {'UserID', 'ETDDC'});
 % Keep only the questionnaires from the end of the session
 rows_to_keep = ismember(survey_data.CompletionTime, 'Session end');
@@ -53,19 +186,30 @@ end
 % We remove all users that have only done one session, because they have no
 % pairwise info to be used in analyses. This can be changed if e.g., you
 % only want visualizations, and not statistical things
-% unique_values = unique(all_user_info.UserID);
-% appear_once = unique_values(histcounts(double(all_user_info.UserID), double(unique_values)) == 1);
-% all_user_info = all_user_info(~ismember(all_user_info.UserID, appear_once), :);
+unique_values = unique(all_user_info.UserID);
+appear_once = unique_values(histcounts(double(all_user_info.UserID), double(unique_values)) == 1);
+all_user_info = all_user_info(~ismember(all_user_info.UserID, appear_once), :);
 
 % Some examples of how to remove users manually
+all_user_info = all_user_info(all_user_info.UserID ~= '007', :);
+all_user_info = all_user_info(all_user_info.UserID ~= '015', :);
+all_user_info = all_user_info(all_user_info.UserID ~= '020', :);
+% Manually removing user 16
+all_user_info = all_user_info(all_user_info.UserID ~= '011', :);
+all_user_info = all_user_info(all_user_info.UserID ~= '016', :);
 all_user_info = all_user_info(all_user_info.UserID ~= '040', :);
-all_user_info = all_user_info(all_user_info.UserID ~= '041', :);
+all_user_info = all_user_info(all_user_info.UserID ~= '024', :);
+all_user_info(end-1:end, :) = [];
 
 % Keep only info for those users that are in our analyses. Again this can
 % be changed if only visualization is desired
 currUsers = str2double(all_user_info.UserID);
 rows_to_keep = ismember(survey_data.ParticipantID, currUsers);
 survey_data = survey_data(rows_to_keep, :);
+
+currUsers = survey_data.ParticipantID;
+all_user_info = all_user_info(ismember(str2double(all_user_info.UserID), currUsers), :);
+
 
 % %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% %
 % Prepare variables for statistical analysis %
@@ -110,13 +254,453 @@ group = [zeros(1, numel(SSQ_totalSubscale0)), ones(1, numel(SSQ_totalSubscale1))
 
 % You can manually decide if some chunk should be skipped for analyses
 data = {
-    '009', '2', 'CH20';
-    '009', '2', 'CH40';
-    '009', '2', 'CH60';
-    '009', '2', 'CH05';
-    '009', '2', 'L10';
+    '015', '2', 'CH20';
+    '015', '2', 'CH40';
+    '015', '2', 'CH60';
+    '015', '2', 'CH05';
+    '015', '2', 'L10';
+    '015', '1', 'CH20';
+    '015', '1', 'CH40';
+    '015', '1', 'CH60';
+    '015', '1', 'CH05';
+    '015', '1', 'L10';
+    '020', '2', 'CH20';
+    '020', '2', 'CH40';
+    '020', '2', 'CH60';
+    '020', '2', 'CH05';
+    '020', '2', 'L10';
+    '020', '1', 'CH20';
+    '020', '1', 'CH40';
+    '020', '1', 'CH60';
+    '020', '1', 'CH05';
+    '020', '1', 'L10';
+
 };
 corrupted = table(data(:, 1), data(:, 2), data(:, 3), 'VariableNames', {'UserID', 'Session', 'Chunk'});
+
+
+% ============================================================================ % 
+% ============================================================================ % 
+% ====================== SANITY CHECKS WITH SACCADES ========================= %
+% ============================================================================ % 
+% ============================================================================ %
+
+% Gaze in head space
+saccadeInfo0 = struct();           saccadeInfo1 = struct(); 
+% Prepare a struct for each time chunk
+saccadeInfo0.CH20 = struct();      saccadeInfo1.CH20 = struct(); 
+saccadeInfo0.CH40 = struct();      saccadeInfo1.CH40 = struct(); 
+saccadeInfo0.CH60 = struct();      saccadeInfo1.CH60 = struct(); 
+saccadeInfo0.L10 = struct();       saccadeInfo1.L10 = struct(); 
+% These chunks respond to current way of performing analyses, namely
+% CH20: Last 5 minutes of first chunk (15' to 20')
+% CH40: Last 5 minutes of second chunk (35' to 40')
+% CH60: Last 5 minutes of third chunk (55' to 60')
+% L10: Last 10 minutes of session (70' to 80')
+structs = {'CH20', 'CH40', 'CH60', 'L10'};
+
+% >>> saccade amplitude vs. saccade peak velocity, and for saccade amplitude vs. saccade duration
+
+dirPath = 'results/study2/saccades/';
+for i = 1:length(structs)
+    field = structs{i};
+    % Gaze in head
+    saccadeInfo0.(field).amp = [];                 saccadeInfo1.(field).amp = []; 
+    saccadeInfo0.(field).ampInHead = [];           saccadeInfo1.(field).ampInHead = []; 
+    saccadeInfo0.(field).meanVel = [];             saccadeInfo1.(field).meanVel = []; 
+    saccadeInfo0.(field).meanVelHead = [];         saccadeInfo1.(field).meanVelHead = [];  
+    saccadeInfo0.(field).peakVel = [];             saccadeInfo1.(field).peakVel = [];         
+    saccadeInfo0.(field).peakVelHead = [];         saccadeInfo1.(field).peakVelHead = [];
+    saccadeInfo0.(field).duration = [];            saccadeInfo1.(field).duration = [];
+end
+
+colors = lines(height(all_user_info) / 2);
+
+% Create a figure
+fig = figure('Position', [20, 20, 500, 500], 'Visible', 'off');
+% for k = 1:size(unique_values)
+    % fig = figure('Position', [20, 20, 500, 500], 'Visible', 'off');
+
+    for i = 1:height(all_user_info)
+        % Recover head and eye traces 
+        
+        % Remove any chunk manually if desired (prev. defined)
+        isTupleInTable = any(strcmp(corrupted.UserID, all_user_info.UserID(i)) & ...
+                             strcmp(corrupted.Session, num2str(all_user_info.Session(i))) & ...
+                             strcmp(corrupted.Chunk, field));
+        if isTupleInTable
+            continue;
+        end
+
+        % if all_user_info.UserID(i) ~= unique_values(k)
+        %    continue
+        % end
+    
+        sI = struct();
+        sI.duration = [all_user_info.CH20_SaccadeInfo{i}.duration; 
+            all_user_info.CH40_SaccadeInfo{i}.duration; 
+            all_user_info.CH60_SaccadeInfo{i}.duration; 
+            all_user_info.SaccadeInfo{i}.duration];
+         sI.peakVelHead = [all_user_info.CH20_SaccadeInfo{i}.peakVelHead; 
+            all_user_info.CH40_SaccadeInfo{i}.peakVelHead; 
+            all_user_info.CH60_SaccadeInfo{i}.peakVelHead; 
+            all_user_info.SaccadeInfo{i}.peakVelHead];
+         sI.ampInHead = [all_user_info.CH20_SaccadeInfo{i}.ampInHead; 
+            all_user_info.CH40_SaccadeInfo{i}.ampInHead; 
+            all_user_info.CH60_SaccadeInfo{i}.ampInHead; 
+            all_user_info.SaccadeInfo{i}.ampInHead];
+        %{
+        switch field
+            case 'CH20'
+                sI = all_user_info.CH20_SaccadeInfo{i};
+            case 'CH40'
+                sI = all_user_info.CH40_SaccadeInfo{i};
+            case 'CH60'
+                sI = all_user_info.CH60_SaccadeInfo{i};
+            otherwise
+                sI = all_user_info.SaccadeInfo{i};
+        end
+        %}
+        
+        to_keep = sI.duration < 0.25 & sI.peakVelHead < 2000 & sI.ampInHead > 2;
+        sI.ampInHead = sI.ampInHead(to_keep);
+        sI.peakVelHead = sI.peakVelHead(to_keep);
+        sI.duration = sI.duration(to_keep);
+        to_keep = sI.duration < 0.25 & sI.peakVelHead < 2000 & sI.ampInHead > 2;    
+        sI.ampInHead = sI.ampInHead(to_keep);
+        sI.peakVelHead = sI.peakVelHead(to_keep);
+        sI.duration = sI.duration(to_keep);  
+    
+        % Fit function
+        [params1, CI, idxOutliers] = fitMainSequence(sI.ampInHead, sI.peakVelHead, sI.duration, true);
+        [params2, CI, idxOutliers] = fitMainSequence(sI.ampInHead, sI.peakVelHead, sI.duration, false);
+        % Create a range of amplitudes for plotting
+        ampRange = linspace(1, 60, 100);
+        % Calculate corresponding peak velocities using the fitted parameters
+        fittedPeakVel = params1.K * ampRange.^params1.L;
+        fittedDuration = params2.slope * ampRange;
+    
+        if all_user_info.ETDDC(i) == 0
+            % Scatter plot    
+            subplot(1,2,1);
+            scatter(sI.ampInHead, sI.peakVelHead, 'MarkerFaceColor', colors(uint8(i/2), :), 'MarkerFaceAlpha', 0.02, 'MarkerEdgeAlpha', 0.02);
+            hold on;
+            plot(ampRange, fittedPeakVel, 'LineWidth', 2, 'DisplayName', 'Fitted Function', 'Color', colors(uint8(i/2), :));
+            xlabel('Sac. Amplitude');
+            ylabel('Sac. Peak Vel.');
+            ylim([0 1500]);
+            title('ET-DDC OFF Amplitude vs. Peak Vel.');
+            hold on;
+%     
+%             % Scatter plot
+%             subplot(2,2,3);
+%             scatter(sI.ampInHead, sI.duration, 'MarkerFaceColor', colors(uint8(i/2), :), 'MarkerFaceAlpha', 0.02, 'MarkerEdgeAlpha', 0.02);
+%             hold on;
+%             plot(ampRange, fittedDuration, 'LineWidth', 2, 'DisplayName', 'Fitted Function', 'Color', colors(uint8(i/2), :));
+%             xlabel('Sac. Amplitude');
+%             ylabel('Sac. Duration');
+%             title('ET-DDC OFF Amplitude vs. Duration');
+%             hold on;
+        else
+            % Scatter plot
+            subplot(1,2,2);
+            scatter(sI.ampInHead, sI.peakVelHead, 'MarkerFaceColor', colors(uint8(i/2), :), 'MarkerFaceAlpha', 0.02, 'MarkerEdgeAlpha', 0.02);
+            hold on;
+            plot(ampRange, fittedPeakVel, 'LineWidth', 2, 'DisplayName', 'Fitted Function', 'Color', colors(uint8(i/2), :));
+            xlabel('Sac. Amplitude');
+            ylim([0 1500]);
+            title('ET-DDC ON Amplitude vs. Peak Vel.');
+            hold on;
+      
+%             % Scatter plot
+%             subplot(2,2,4);
+%             scatter(sI.ampInHead, sI.duration, 'MarkerFaceColor', colors(uint8(i/2), :), 'MarkerFaceAlpha', 0.02, 'MarkerEdgeAlpha', 0.02);
+%             hold on;
+%             plot(ampRange, fittedDuration, 'LineWidth', 2, 'DisplayName', 'Fitted Function', 'Color', colors(uint8(i/2), :));
+%             xlabel('Sac. Amplitude');
+%             ylabel('Sac. Duration');
+%             title('ET-DDC ON Amplitude vs. Duration');
+%             hold on;        
+        end     
+         
+        %{
+        if all_user_info.ETDDC(i) == 0
+            % Store gaze in head
+            saccadeInfo0.(field).amp = [saccadeInfo0.(field).amp; sI.amp];
+            saccadeInfo0.(field).ampInHead = [saccadeInfo0.(field).ampInHead; sI.ampInHead];
+            saccadeInfo0.(field).meanVel = [saccadeInfo0.(field).meanVel; sI.meanVel];
+            saccadeInfo0.(field).meanVelHead = [saccadeInfo0.(field).meanVelHead; sI.meanVelHead];
+            saccadeInfo0.(field).peakVel = [saccadeInfo0.(field).peakVel; sI.peakVel];
+            saccadeInfo0.(field).peakVelHead = [saccadeInfo0.(field).peakVelHead; sI.peakVelHead];
+            saccadeInfo0.(field).duration = [saccadeInfo0.(field).duration; sI.duration];        
+        else
+            % Store gaze in head
+            saccadeInfo1.(field).amp = [saccadeInfo1.(field).amp; sI.amp];
+            saccadeInfo1.(field).ampInHead = [saccadeInfo1.(field).ampInHead; sI.ampInHead];
+            saccadeInfo1.(field).meanVel = [saccadeInfo1.(field).meanVel; sI.meanVel];
+            saccadeInfo1.(field).meanVelHead = [saccadeInfo1.(field).meanVelHead; sI.meanVelHead];
+            saccadeInfo1.(field).peakVel = [saccadeInfo1.(field).peakVel; sI.peakVel];
+            saccadeInfo1.(field).peakVelHead = [saccadeInfo1.(field).peakVelHead; sI.peakVelHead];
+            saccadeInfo1.(field).duration = [saccadeInfo1.(field).duration; sI.duration];   
+        end 
+        %}
+    end
+    % saveas(fig, [dirPath unique_values{k} '_slopes.png']);
+% end
+
+saveas(fig, [dirPath 'all_slopes.png']);
+
+
+%%
+%{
+for j = 1:length(structs)
+    field = structs{j};
+    to_keep = saccadeInfo0.(field).duration < 0.25 & saccadeInfo0.(field).peakVelHead < 2000 & saccadeInfo0.(field).ampInHead > 2;
+    saccadeInfo0.(field).ampInHead = saccadeInfo0.(field).ampInHead(to_keep);
+    saccadeInfo0.(field).peakVelHead = saccadeInfo0.(field).peakVelHead(to_keep);
+    saccadeInfo0.(field).duration = saccadeInfo0.(field).duration(to_keep);
+    to_keep = saccadeInfo1.(field).duration < 0.25 & saccadeInfo1.(field).peakVelHead < 2000 & saccadeInfo1.(field).ampInHead > 2;    
+    saccadeInfo1.(field).ampInHead = saccadeInfo1.(field).ampInHead(to_keep);
+    saccadeInfo1.(field).peakVelHead = saccadeInfo1.(field).peakVelHead(to_keep);
+    saccadeInfo1.(field).duration = saccadeInfo1.(field).duration(to_keep);
+
+    % Create a figure
+    fig = figure('Position', [20, 20, 500, 500], 'Visible', 'off');
+    
+    % Scatter plot    
+    scatter(saccadeInfo0.(field).ampInHead, saccadeInfo0.(field).peakVelHead);
+    
+    % Adding labels and title
+    xlabel('Sac. Amplitude');
+    ylabel('Sac. Peak Vel.');
+    title('Amplitude vs. Peak Vel.');
+    
+    % Save the plot as a PNG file
+    saveas(fig, [dirPath field '_amp_peakVel_OFF.png']);
+
+    % ==== %
+
+    % Create a figure
+    fig = figure('Position', [20, 20, 500, 500], 'Visible', 'off');
+    
+    % Scatter plot
+    scatter(saccadeInfo1.(field).ampInHead, saccadeInfo1.(field).peakVelHead);
+    
+    % Adding labels and title
+    xlabel('Sac. Amplitude');
+    ylabel('Sac. Peak Vel.');
+    title('Amplitude vs. Peak Vel.');
+    
+    % Save the plot as a PNG file
+    saveas(fig, [dirPath field '_amp_peakVel_ON.png']);
+
+    % ==== %
+
+    % Create a figure
+    fig = figure('Position', [20, 20, 500, 500], 'Visible', 'off');
+    
+    % Scatter plot
+    scatter(saccadeInfo0.(field).ampInHead, saccadeInfo0.(field).duration);
+    
+    % Adding labels and title
+    xlabel('Sac. Amplitude');
+    ylabel('Sac. Duration');
+    title('Amplitude vs. Duration');
+    
+    % Save the plot as a PNG file
+    saveas(fig, [dirPath field '_amp_duration_OFF.png']);
+
+    % ==== %
+
+    % Create a figure
+    fig = figure('Position', [20, 20, 500, 500], 'Visible', 'off');
+    
+    % Scatter plot
+    scatter(saccadeInfo1.(field).ampInHead, saccadeInfo1.(field).duration);
+    
+    % Adding labels and title
+    xlabel('Sac. Amplitude');
+    ylabel('Sac. Duration');
+    title('Amplitude vs. Duration');
+    
+    % Save the plot as a PNG file
+    saveas(fig, [dirPath field '_amp_duration_ON.png']);
+end
+%}
+
+
+% Iterate data and get it from different chunks
+s0_amp_CH20 = [];
+s0_peak_CH20 = [];
+s1_amp_CH20 = [];
+s1_peak_CH20 = [];
+
+s0_amp_CH40 = [];
+s0_peak_CH40 = [];
+s1_amp_CH40 = [];
+s1_peak_CH40 = [];
+
+s0_amp_CH60 = [];
+s0_peak_CH60 = [];
+s1_amp_CH60 = [];
+s1_peak_CH60 = [];
+
+s0_amp_L10 = [];
+s0_peak_L10 = [];
+s1_amp_L10 = [];
+s1_peak_L10 = [];
+
+
+for i = 1:height(all_user_info)
+    % Store
+    if all_user_info.ETDDC(i) == 0
+        s0_amp_CH20 = [s0_amp_CH20; nanmedian(all_user_info.CH20_SaccadeInfo{i}.ampInHead)];
+        s0_amp_CH40 = [s0_amp_CH40; nanmedian(all_user_info.CH40_SaccadeInfo{i}.ampInHead)];
+        s0_amp_CH60 = [s0_amp_CH60; nanmedian(all_user_info.CH60_SaccadeInfo{i}.ampInHead)];
+        s0_amp_L10  = [s0_amp_L10;  nanmedian(all_user_info.SaccadeInfo{i}.ampInHead)];
+        s0_peak_CH20 = [s0_peak_CH20; nanmedian(all_user_info.CH20_SaccadeInfo{i}.peakVelHead)];
+        s0_peak_CH40 = [s0_peak_CH40; nanmedian(all_user_info.CH40_SaccadeInfo{i}.peakVelHead)];
+        s0_peak_CH60 = [s0_peak_CH60; nanmedian(all_user_info.CH60_SaccadeInfo{i}.peakVelHead)];
+        s0_peak_L10  = [s0_peak_L10;  nanmedian(all_user_info.SaccadeInfo{i}.peakVelHead)];
+    else
+        s1_amp_CH20 = [s1_amp_CH20; nanmedian(all_user_info.CH20_SaccadeInfo{i}.ampInHead)];
+        s1_amp_CH40 = [s1_amp_CH40; nanmedian(all_user_info.CH40_SaccadeInfo{i}.ampInHead)];
+        s1_amp_CH60 = [s1_amp_CH60; nanmedian(all_user_info.CH60_SaccadeInfo{i}.ampInHead)];
+        s1_amp_L10  = [s1_amp_L10;  nanmedian(all_user_info.SaccadeInfo{i}.ampInHead)];
+        s1_peak_CH20 = [s1_peak_CH20; nanmedian(all_user_info.CH20_SaccadeInfo{i}.peakVelHead)];
+        s1_peak_CH40 = [s1_peak_CH40; nanmedian(all_user_info.CH40_SaccadeInfo{i}.peakVelHead)];
+        s1_peak_CH60 = [s1_peak_CH60; nanmedian(all_user_info.CH60_SaccadeInfo{i}.peakVelHead)];
+        s1_peak_L10  = [s1_peak_L10;  nanmedian(all_user_info.SaccadeInfo{i}.peakVelHead)];
+    end
+end
+
+
+
+
+% First plot the value evolution (base and normalized)
+figure('Position', [100, 100, 1400, 1000], 'Visible', 'off');
+
+% Define a color map
+color_map = lines(size(s0_amp_CH20));
+set(gca, 'ColorOrder', color_map);
+
+% Top-left subplot is raw evolution for condition 0
+subplot(2, 2, 1);
+hold on;
+plot([1, 2, 3, 4], [s0_amp_CH20, s0_amp_CH40, s0_amp_CH60, s0_amp_L10], 'o-', 'LineWidth', 3);
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Saccade amplitude evolution - ETDDC off');
+
+% Top-right subplot is raw evolution for condition 1
+subplot(2, 2, 2);
+hold on;
+plot([1, 2, 3, 4], [s1_amp_CH20, s1_amp_CH40, s1_amp_CH60, s1_amp_L10], 'o-', 'LineWidth', 3);
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Saccade amplitude evolution - ETDDC on');
+
+% Left subplot is normalized evolution for condition 0
+subplot(2, 2, 3);
+hold on;
+plot([1, 2, 3, 4], [s0_amp_CH20 - s0_amp_CH20, ...
+                    s0_amp_CH40 - s0_amp_CH20, ...
+                    s0_amp_CH60 - s0_amp_CH20, ...
+                    s0_amp_L10 - s0_amp_CH20], 'o-', 'LineWidth', 3);        
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Normalized saccade amplitude evolution - ETDDC off');
+        
+% Right subplot
+subplot(2, 2, 4);
+hold on;
+plot([1, 2, 3, 4], [s1_amp_CH20 - s1_amp_CH20, ...
+                    s1_amp_CH40 - s1_amp_CH20, ...
+                    s1_amp_CH60 - s1_amp_CH20, ...
+                    s1_amp_L10 - s1_amp_CH20], 'o-', 'LineWidth', 3);        
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Normalized saccade amplitude evolution - ETDDC on');
+
+% Inform that data has been saved
+saveas(gcf, 'results/study2/saccades/SaccadeAmplitudeEvolution.png');
+fprintf(['[SAVED] Evolution plot --> SaccadeAmplitudeEvolution.png\n']);
+
+
+% First plot the value evolution (base and normalized)
+figure('Position', [100, 100, 1400, 1000], 'Visible', 'off');
+
+% Define a color map
+color_map = lines(size(s0_peak_CH20));
+set(gca, 'ColorOrder', color_map);
+
+% Top-left subplot is raw evolution for condition 0
+subplot(2, 2, 1);
+hold on;
+plot([1, 2, 3, 4], [s0_peak_CH20, s0_peak_CH40, s0_peak_CH60, s0_peak_L10], 'o-', 'LineWidth', 3);
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Saccade peak velocity evolution - ETDDC off');
+
+% Top-right subplot is raw evolution for condition 1
+subplot(2, 2, 2);
+hold on;
+plot([1, 2, 3, 4], [s1_peak_CH20, s1_peak_CH40, s1_peak_CH60, s1_peak_L10], 'o-', 'LineWidth', 3);
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Saccade peak velocity evolution - ETDDC on');
+
+% Left subplot is normalized evolution for condition 0
+subplot(2, 2, 3);
+hold on;
+plot([1, 2, 3, 4], [s0_peak_CH20 - s0_peak_CH20, ...
+                    s0_peak_CH40 - s0_peak_CH20, ...
+                    s0_peak_CH60 - s0_peak_CH20, ...
+                    s0_peak_L10 - s0_peak_CH20], 'o-', 'LineWidth', 3);        
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Normalized saccade peak velocity evolution - ETDDC off');
+        
+% Right subplot
+subplot(2, 2, 4);
+hold on;
+plot([1, 2, 3, 4], [s1_peak_CH20 - s1_peak_CH20, ...
+                    s1_peak_CH40 - s1_peak_CH20, ...
+                    s1_peak_CH60 - s1_peak_CH20, ...
+                    s1_peak_L10 - s1_peak_CH20], 'o-', 'LineWidth', 3);        
+hold off;
+% ylim([])
+xticks(1:4);
+xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
+title('Normalized saccade peak velocity evolution - ETDDC on');
+
+% Inform that data has been saved
+saveas(gcf, 'results/study2/saccades/SaccadePeakVelocityEvolution.png');
+fprintf(['[SAVED] Evolution plot --> SaccadePeakVelocityEvolution.png\n']);
+
+
+
+
+
+
+
+
+
+
 
 % ============================================================================= %
 % ============================================================================= %
@@ -169,6 +753,8 @@ structs = {'CH20', 'CH40', 'CH60', 'L10'};
 % and comment all the parts of the code that go trhough/use CH20, 40 or 60.
 % The other part of the code affected by this is the one related to
 % "evolution over time"
+
+
 for i = 1:length(structs)
     field = structs{i};
     % Gaze in head
@@ -246,21 +832,24 @@ for j = 1:length(structs)
             % Pre-compute eye movements for statistical analyses (head)
             theta = -atan2d(gH(:, 2), gH(:, 1));
             phi = atan2d(gH(:, 3), sqrt(gH(:, 1).^2 + gH(:, 2).^2));
-            gazeHead0.(field).headRawGazeAngleMagn = [gazeHead0.(field).headRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            % gazeHead0.(field).headRawGazeAngleMagn = [gazeHead0.(field).headRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            gazeHead0.(field).headRawGazeAngleMagn = [gazeHead0.(field).headRawGazeAngleMagn ; nanmedian(eA.velOriHeadFilt2D)];  
             gazeHead0.(field).headPhiMagn = [gazeHead0.(field).headPhiMagn ; median(phi)];
             gazeHead0.(field).headThetaMagn = [gazeHead0.(field).headThetaMagn ; median(theta)];
             % Pre-compute eye movements for statistical analyses (world)
             theta = -atan2d(gW(:, 2), gW(:, 1));
             phi = atan2d(gW(:, 3), sqrt(gW(:, 1).^2 + gW(:, 2).^2));
-            gazeWorld0.(field).worldRawGazeAngleMagn = [gazeWorld0.(field).worldRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            % gazeWorld0.(field).worldRawGazeAngleMagn = [gazeWorld0.(field).worldRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            gazeWorld0.(field).worldRawGazeAngleMagn = [gazeWorld0.(field).worldRawGazeAngleMagn ; nanmedian(eA.velOriWorldRaw2D)];            
             gazeWorld0.(field).worldPhiMagn = [gazeWorld0.(field).worldPhiMagn ; median(phi)];
             gazeWorld0.(field).worldThetaMagn = [gazeWorld0.(field).worldThetaMagn ; median(theta)];
             % Pre-compute head movements for statistical analyses (world)
             theta = -atan2d(hR(:, 2), hR(:, 1));
             phi = atan2d(hR(:, 3), sqrt(hR(:, 1).^2 + hR(:, 2).^2));
-            headWorld0.(field).worldRawGazeAngleMagn = [headWorld0.(field).worldRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
-            headWorld0.(field).worldPhiMagn = [headWorld0.(field).worldPhiMagn ; median(phi)];
-            headWorld0.(field).worldThetaMagn = [headWorld0.(field).worldThetaMagn ; median(theta)];
+            % headWorld0.(field).worldRawGazeAngleMagn = [headWorld0.(field).worldRawGazeAngleMagn ; nanmedian(sqrt(theta.^2 + phi.^2))];
+            headWorld0.(field).worldRawGazeAngleMagn = [headWorld0.(field).worldRawGazeAngleMagn ; nanmedian(hA.rotVel3DFilt)];
+            headWorld0.(field).worldPhiMagn = [headWorld0.(field).worldPhiMagn ; nanmedian(phi)];
+            headWorld0.(field).worldThetaMagn = [headWorld0.(field).worldThetaMagn ; nanmedian(theta)];
         else
             % Store gaze in head
             gazeHead1.(field).x = [gazeHead1.(field).x ; gH(:, 1)];
@@ -277,21 +866,24 @@ for j = 1:length(structs)
             % Pre-compute eye movements for statistical analyses (head)
             theta = -atan2d(gH(:, 2), gH(:, 1));
             phi = atan2d(gH(:, 3), sqrt(gH(:, 1).^2 + gH(:, 2).^2));
-            gazeHead1.(field).headRawGazeAngleMagn = [gazeHead1.(field).headRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            % gazeHead1.(field).headRawGazeAngleMagn = [gazeHead1.(field).headRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            gazeHead1.(field).headRawGazeAngleMagn = [gazeHead1.(field).headRawGazeAngleMagn ; nanmedian(eA.velOriHeadFilt2D)];
             gazeHead1.(field).headPhiMagn = [gazeHead1.(field).headPhiMagn ; median(phi)];
             gazeHead1.(field).headThetaMagn = [gazeHead1.(field).headThetaMagn ; median(theta)];
             % Pre-compute eye movements for statistical analyses (world)
             theta = -atan2d(gW(:, 2), gW(:, 1));
-            phi = atan2d(gW(:, 3), sqrt(gW(:, 1).^2 + gW(:, 2).^2));
-            gazeWorld1.(field).worldRawGazeAngleMagn = [gazeWorld1.(field).worldRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            phi = atan2d(gW(:, 3), sqrt(gW(:, 1).^2 + gW(:, 2).^2));  
+            % gazeWorld1.(field).worldRawGazeAngleMagn = [gazeWorld1.(field).worldRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
+            gazeWorld1.(field).worldRawGazeAngleMagn = [gazeWorld1.(field).worldRawGazeAngleMagn ; nanmedian(eA.velOriWorldRaw2D)]; 
             gazeWorld1.(field).worldPhiMagn = [gazeWorld1.(field).worldPhiMagn ; median(phi)];
             gazeWorld1.(field).worldThetaMagn = [gazeWorld1.(field).worldThetaMagn ; median(theta)];
             % Pre-compute head movements for statistical analyses (world)
             theta = -atan2d(hR(:, 2), hR(:, 1));
             phi = atan2d(hR(:, 3), sqrt(hR(:, 1).^2 + hR(:, 2).^2));
-            headWorld1.(field).worldRawGazeAngleMagn = [headWorld1.(field).worldRawGazeAngleMagn ; median(sqrt(theta.^2 + phi.^2))];
-            headWorld1.(field).worldPhiMagn = [headWorld1.(field).worldPhiMagn ; median(phi)];
-            headWorld1.(field).worldThetaMagn = [headWorld1.(field).worldThetaMagn ; median(theta)];
+            % headWorld1.(field).worldRawGazeAngleMagn = [headWorld1.(field).worldRawGazeAngleMagn ; nanmedian(sqrt(theta.^2 + phi.^2))];
+            headWorld1.(field).worldRawGazeAngleMagn = [headWorld1.(field).worldRawGazeAngleMagn ; nanmedian(hA.rotVel3DFilt)];
+            headWorld1.(field).worldPhiMagn = [headWorld1.(field).worldPhiMagn ; nanmedian(phi)];
+            headWorld1.(field).worldThetaMagn = [headWorld1.(field).worldThetaMagn ; nanmedian(theta)];
         end
     end
 end
@@ -318,42 +910,66 @@ calculateAndPlotHeatmapDifferences(gH_L10, gH_CH20, gH_CH40, gH_CH60, ...
 
 
 
-% Last 10 minutes for statistical analyses
-%
-% Overall angular distance in head space
-headRawGazeAngleMagn = [gazeHead0.L10.headRawGazeAngleMagn; gazeHead1.L10.headRawGazeAngleMagn];
-% Overall angular distance in world space
-worldRawGazeAngleMagn = [gazeWorld0.L10.worldRawGazeAngleMagn; gazeWorld1.L10.worldRawGazeAngleMagn];
-% Theta angular distance in head space
-headThetaMagn = [gazeHead0.L10.headThetaMagn; gazeHead1.L10.headThetaMagn];
-% Theta angular distance in world space
-worldThetaMagn = [gazeWorld0.L10.worldThetaMagn; gazeWorld1.L10.worldThetaMagn];
-% Phi angular distance in head space
-headPhiMagn = [gazeHead0.L10.headPhiMagn; gazeHead1.L10.headPhiMagn];
-% Phi angular distance in world space
-worldPhiMagn = [gazeWorld0.L10.worldPhiMagn; gazeWorld1.L10.worldPhiMagn];
 
-% Everything works like:
-% 1 - Create a table for analysis
-% 2 - Fit the generalized linear mixed-effects model
-% 3 - Then save the GLME results and plot interaction effects
 
-% % Check overall eye movement magnitude
-% data_table = table(headRawGazeAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'headRawGazeAngleMagn ~ 1 + group*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_GIHead_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, group, headRawGazeAngleMagn, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group*headRawGazeAngleMagn + headRawGazeAngleMagn*VIMSSQ_total + group:headRawGazeAngleMagn:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'headRawGazeAngleMagn', 'VIMSSQ_total', [dirPath 'SA_SSQ_GIHead_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(worldRawGazeAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'worldRawGazeAngleMagn ~ 1 + group*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_GIWorld_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, group, worldRawGazeAngleMagn, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group*worldRawGazeAngleMagn + worldRawGazeAngleMagn*VIMSSQ_total + group:worldRawGazeAngleMagn:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'worldRawGazeAngleMagn', 'VIMSSQ_total', [dirPath 'SA_SSQ_GIWorld_'], 'ET-DDC Off', 'ET-DDC On');
+for j = 1:length(structs)
+    field = structs{j};
+
+    % Last 10 minutes for statistical analyses
+    %
+    % Overall angular distance in head space
+    headRawGazeAngleMagn = [gazeHead0.(field).headRawGazeAngleMagn; gazeHead1.(field).headRawGazeAngleMagn];
+    % Overall angular distance in world space
+    worldRawGazeAngleMagn = [gazeWorld0.(field).worldRawGazeAngleMagn; gazeWorld1.(field).worldRawGazeAngleMagn];
+    % Overall angular distance in world space
+    worldHeadAngleMagn = [headWorld0.(field).worldRawGazeAngleMagn; headWorld1.(field).worldRawGazeAngleMagn];
+    % Theta angular distance in head space
+    headThetaMagn = [gazeHead0.(field).headThetaMagn; gazeHead1.(field).headThetaMagn];
+    % Theta angular distance in world space
+    worldThetaMagn = [gazeWorld0.(field).worldThetaMagn; gazeWorld1.(field).worldThetaMagn];
+    % Phi angular distance in head space
+    headPhiMagn = [gazeHead0.(field).headPhiMagn; gazeHead1.(field).headPhiMagn];
+    % Phi angular distance in world space
+    worldPhiMagn = [gazeWorld0.(field).worldPhiMagn; gazeWorld1.(field).worldPhiMagn];
+    
+    
+    % Everything works like:
+    % 1 - Create a table for analysis
+    % 2 - Fit the generalized linear mixed-effects model
+    % 3 - Then save the GLME results and plot interaction effects
+    
+    % % Check overall eye movement magnitude
+    data_table = table(headRawGazeAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
+    glme = fitglme(data_table, 'headRawGazeAngleMagn ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+    analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath1 field 'SA_GIHead_'], 'ET-DDC Off', 'ET-DDC On', 1);
+    
+    data_table = table(SSQ_totalSubscale, group, headRawGazeAngleMagn, VIMSSQ_total, subjects);
+    glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + headRawGazeAngleMagn + VIMSSQ_total + headRawGazeAngleMagn:group + (1 | subjects)');
+    analyzeGlmeEffects(glme, data_table, 'group', 'headRawGazeAngleMagn', 'VIMSSQ_total', [dirPath1 field 'SA_SSQ_GIHead_'], 'ET-DDC Off', 'ET-DDC On', 2);
+    
+    data_table = table(worldRawGazeAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
+    glme = fitglme(data_table, 'worldRawGazeAngleMagn ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+    analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath1 field 'SA_GIWorld_'], 'ET-DDC Off', 'ET-DDC On', 1);
+    
+    data_table = table(SSQ_totalSubscale, group, worldRawGazeAngleMagn, VIMSSQ_total, subjects);
+    glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + worldRawGazeAngleMagn + VIMSSQ_total + worldRawGazeAngleMagn:group + (1 | subjects)');
+    analyzeGlmeEffects(glme, data_table, 'group', 'worldRawGazeAngleMagn', 'VIMSSQ_total', [dirPath1 field 'SA_SSQ_GIWorld_'], 'ET-DDC Off', 'ET-DDC On', 2);
+    
+    data_table = table(worldHeadAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
+    glme = fitglme(data_table, 'worldHeadAngleMagn ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+    analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath2 field 'SA_HIWorld_'], 'ET-DDC Off', 'ET-DDC On', 1);
+    
+    data_table = table(SSQ_totalSubscale, group, worldHeadAngleMagn, VIMSSQ_total, subjects);
+    glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + worldHeadAngleMagn + VIMSSQ_total + worldHeadAngleMagn:group + (1 | subjects)');
+    analyzeGlmeEffects(glme, data_table, 'group', 'worldHeadAngleMagn', 'VIMSSQ_total', [dirPath2 field 'SA_SSQ_HIWorld_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+    data_table = table(SSQ_totalSubscale, group, worldHeadAngleMagn, VIMSSQ_total, subjects);
+    glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + VIMSSQ_total + VIMSSQ_total:group + (1 | subjects)');
+    disp(glme);
+
+end
+
+
 
 % % The same but only for the first 5 minutes block
 % % Note that you can do this for as many blocks as needed
@@ -453,13 +1069,15 @@ for i = 1:height(all_user_info)
         % Pre-compute eye movements for statistical analyses (head)
         theta = -atan2d(gH(:, 2), gH(:, 1));
         phi = atan2d(gH(:, 3), sqrt(gH(:, 1).^2 + gH(:, 2).^2));
-        headFixAngleMagn0 = [headFixAngleMagn0 ; median(sqrt(theta.^2 + phi.^2))];
+        % headFixAngleMagn0 = [headFixAngleMagn0 ; median(sqrt(theta.^2 + phi.^2))];
+        headFixAngleMagn0 = [headFixAngleMagn0 ; nanmedian(eA.velOriHeadFilt2D)];
         headFixPhiMagn0 = [headFixPhiMagn0 ; median(phi)];
         headFixThetaMagn0 = [headFixThetaMagn0 ; median(theta)];
         % Pre-compute eye movements for statistical analyses (world)
         theta = -atan2d(gW(:, 2), gW(:, 1));
         phi = atan2d(gW(:, 3), sqrt(gW(:, 1).^2 + gW(:, 2).^2));
-        worldFixAngleMagn0 = [worldFixAngleMagn0 ; median(sqrt(theta.^2 + phi.^2))];
+        % worldFixAngleMagn0 = [worldFixAngleMagn0 ; median(sqrt(theta.^2 + phi.^2))];
+        worldFixAngleMagn0 = [worldFixAngleMagn0 ;  nanmedian(eA.velOriWorldFilt2D)];
         worldFixPhiMagn0 = [worldFixPhiMagn0 ; median(phi)];
         worldFixThetaMagn0 = [worldFixThetaMagn0 ; median(theta)];
     else
@@ -474,13 +1092,15 @@ for i = 1:height(all_user_info)
         % Pre-compute eye movements for statistical analyses (head)
         theta = -atan2d(gH(:, 2), gH(:, 1));
         phi = atan2d(gH(:, 3), sqrt(gH(:, 1).^2 + gH(:, 2).^2));
-        headFixAngleMagn1 = [headFixAngleMagn1 ; median(sqrt(theta.^2 + phi.^2))];
+        %headFixAngleMagn1 = [headFixAngleMagn1 ; median(sqrt(theta.^2 + phi.^2))];
+        headFixAngleMagn1 = [headFixAngleMagn1 ; nanmedian(eA.velOriHeadFilt2D)];
         headFixPhiMagn1 = [headFixPhiMagn1 ; median(phi)];
         headFixThetaMagn1 = [headFixThetaMagn1 ; median(theta)];
         % Pre-compute eye movements for statistical analyses (world)
         theta = -atan2d(gW(:, 2), gW(:, 1));
         phi = atan2d(gW(:, 3), sqrt(gW(:, 1).^2 + gW(:, 2).^2));
-        worldFixAngleMagn1 = [worldFixAngleMagn1 ; median(sqrt(theta.^2 + phi.^2))];
+        %worldFixAngleMagn1 = [worldFixAngleMagn1 ; median(sqrt(theta.^2 + phi.^2))];
+        worldFixAngleMagn1 = [worldFixAngleMagn1 ;  nanmedian(eA.velOriWorldFilt2D)];
         worldFixPhiMagn1 = [worldFixPhiMagn1 ; median(phi)];
         worldFixThetaMagn1 = [worldFixThetaMagn1 ; median(theta)];
     end
@@ -505,22 +1125,24 @@ fprintf('Analyzing and plotting fixation data.\n');
 % 2 - Fit the generalized linear mixed-effects model
 % 3 - Then save the GLME results and plot interaction effects
 
-% % Check overall eye movement magnitude
-% data_table = table(headFixAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'headFixAngleMagn ~ 1 + group*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_FixHead_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, group, headFixAngleMagn, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group*headFixAngleMagn + headFixAngleMagn*VIMSSQ_total + group:headFixAngleMagn:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'headFixAngleMagn', 'VIMSSQ_total', [dirPath 'SA_SSQ_FixHead_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(worldFixAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'worldFixAngleMagn ~ 1 + group*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_FixWorld_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, group, worldFixAngleMagn, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group*worldFixAngleMagn + worldFixAngleMagn*VIMSSQ_total + group:worldFixAngleMagn:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'worldFixAngleMagn', 'VIMSSQ_total', [dirPath 'SA_SSQ_FixWorld_'], 'ET-DDC Off', 'ET-DDC On');
+% Check overall eye movement magnitude
+data_table = table(headFixAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
+glme = fitglme(data_table, 'headFixAngleMagn ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_FixHead_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, group, headFixAngleMagn, VIMSSQ_total, subjects);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + headFixAngleMagn + VIMSSQ_total + headFixAngleMagn:group + (1 | subjects)');
+analyzeGlmeEffects(glme, data_table, 'group', 'headFixAngleMagn', 'VIMSSQ_total', [dirPath 'SA_SSQ_FixHead_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+data_table = table(worldFixAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
+glme = fitglme(data_table, 'worldFixAngleMagn ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_FixWorld_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, group, worldFixAngleMagn, VIMSSQ_total, subjects);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + worldFixAngleMagn + VIMSSQ_total + worldFixAngleMagn:group + (1 | subjects)');
+analyzeGlmeEffects(glme, data_table, 'group', 'worldFixAngleMagn', 'VIMSSQ_total', [dirPath 'SA_SSQ_FixWorld_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+
 
 % % Check granularly (i.e., each angle on isolation)
 % data_table = table(headFixThetaMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
@@ -640,58 +1262,58 @@ end
 
 
 % For last 10 minutes
-rotVel0 = [];
-rotVel1 = [];
-rotVel3D0 = [];
-rotVel3D1 = [];
-
-for i = 1:height(all_user_info)
-    zero_indices = all_user_info.HeadInfo{i}.displace2D == 0;
-    all_user_info.HeadInfo{i} = all_user_info.HeadInfo{i}(~zero_indices, :);
-    % zero_indices = all_user_info.FM_HeadInfo{i}.displace2D == 0;
-    % all_user_info.FM_HeadInfo{i} = all_user_info.FM_HeadInfo{i}(~zero_indices, :);
-    if all_user_info.ETDDC(i) == 0
-        rotVel0 = [rotVel0 ...
-           nanmedian(all_user_info.HeadInfo{i}.displace2D)];
-        rotVel3D0 = [rotVel3D0 ...
-           nanmedian(all_user_info.HeadInfo{i}.rotVel3D)];
-    else
-        rotVel1 = [rotVel1 ...
-           nanmedian(all_user_info.HeadInfo{i}.displace2D)];
-        rotVel3D1 = [rotVel3D1 ...
-           nanmedian(all_user_info.HeadInfo{i}.rotVel3D)];
-    end
-end
-% For last 10 minutes
-velocity = [rotVel0, rotVel1]';
-velocity3D = [rotVel3D0, rotVel3D1]';
-
-% Everything works like:
-% 1 - Create a table for analysis
-% 2 - Fit the generalized linear mixed-effects model
-% 3 - Then save the GLME results and plot interaction effects
-
-fprintf('Analyzing head data.\n');
-
-% Last 10 minutes
-
+% rotVel0 = [];
+% rotVel1 = [];
+% rotVel3D0 = [];
+% rotVel3D1 = [];
+% 
+% for i = 1:height(all_user_info)
+%     zero_indices = all_user_info.HeadInfo{i}.displace2D == 0;
+%     all_user_info.HeadInfo{i} = all_user_info.HeadInfo{i}(~zero_indices, :);
+%     % zero_indices = all_user_info.FM_HeadInfo{i}.displace2D == 0;
+%     % all_user_info.FM_HeadInfo{i} = all_user_info.FM_HeadInfo{i}(~zero_indices, :);
+%     if all_user_info.ETDDC(i) == 0
+%         rotVel0 = [rotVel0 ...
+%            nanmedian(all_user_info.HeadInfo{i}.displace2D)];
+%         rotVel3D0 = [rotVel3D0 ...
+%            nanmedian(all_user_info.HeadInfo{i}.rotVel3D)];
+%     else
+%         rotVel1 = [rotVel1 ...
+%            nanmedian(all_user_info.HeadInfo{i}.displace2D)];
+%         rotVel3D1 = [rotVel3D1 ...
+%            nanmedian(all_user_info.HeadInfo{i}.rotVel3D)];
+%     end
+% end
+% % For last 10 minutes
+% velocity = [rotVel0, rotVel1]';
+% velocity3D = [rotVel3D0, rotVel3D1]';
+% 
+% % Everything works like:
+% % 1 - Create a table for analysis
+% % 2 - Fit the generalized linear mixed-effects model
+% % 3 - Then save the GLME results and plot interaction effects
+% 
+% fprintf('Analyzing head data.\n');
+% 
+% % Last 10 minutes
+% 
 % % Check overall 2D head movement magnitude
 % data_table = table(velocity, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'velocity ~ 1 + group*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_2DHead_'], 'ET-DDC Off', 'ET-DDC On');
+% glme = fitglme(data_table, 'velocity ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_2DHead_'], 'ET-DDC Off', 'ET-DDC On', 1);
 % 
 % data_table = table(SSQ_totalSubscale, group, velocity, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group*velocity + velocity*VIMSSQ_total + group:velocity:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'velocity', 'VIMSSQ_total', [dirPath 'SA_SSQ_2DHead_'], 'ET-DDC Off', 'ET-DDC On');
+% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + velocity + VIMSSQ_total + velocity:group + (1 | subjects)');
+% analyzeGlmeEffects(glme, data_table, 'group', 'velocity', 'VIMSSQ_total', [dirPath 'SA_SSQ_2DHead_'], 'ET-DDC Off', 'ET-DDC On', 2);
 % 
 % % Check overall 3D head movement magnitude
 % data_table = table(velocity3D, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'velocity3D ~ 1 + group*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_3DHead_'], 'ET-DDC Off', 'ET-DDC On');
+% glme = fitglme(data_table, 'velocity3D ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_3DHead_'], 'ET-DDC Off', 'ET-DDC On', 1);
 % 
 % data_table = table(SSQ_totalSubscale, group, velocity3D, VIMSSQ_total, subjects);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group*velocity3D + velocity3D*VIMSSQ_total + group:velocity3D:VIMSSQ_total + (1 | subjects)');
-% analyzeGlmeEffects(glme, data_table, 'group', 'velocity3D', 'VIMSSQ_total', [dirPath 'SA_SSQ_3DHead_'], 'ET-DDC Off', 'ET-DDC On');
+% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + velocity3D + VIMSSQ_total + velocity3D:group + (1 | subjects)');
+% analyzeGlmeEffects(glme, data_table, 'group', 'velocity3D', 'VIMSSQ_total', [dirPath 'SA_SSQ_3DHead_'], 'ET-DDC Off', 'ET-DDC On', 2);
 
 % % Plotting
 % plotPairwiseHeadInfo(rotVel0, rotVel1, [dirPath 'Head2D_'], '2D head movement', 'ET-DDC Off', 'ET-DDC On');
@@ -770,35 +1392,35 @@ for i = 1:height(all_user_info)
     end
     
     % Head info from chunks
-    hI_CH05 = all_user_info.CH05_HeadInfo{i};
+%     hI_CH05 = all_user_info.CH05_HeadInfo{i};
     hI_CH20 = all_user_info.CH20_HeadInfo{i};
     hI_CH40 = all_user_info.CH40_HeadInfo{i};
     hI_CH60 = all_user_info.CH60_HeadInfo{i};
     hI_L10 = all_user_info.HeadInfo{i};
     % Eye info from chunks
-    eI_CH05 = all_user_info.CH05_EyeInfo{i};
+%     eI_CH05 = all_user_info.CH05_EyeInfo{i};
     eI_CH20 = all_user_info.CH20_EyeInfo{i};
     eI_CH40 = all_user_info.CH40_EyeInfo{i};
     eI_CH60 = all_user_info.CH60_EyeInfo{i};
     eI_L10 = all_user_info.EyeInfo{i};
     % This is gaze position in head space 
-    gH_CH05 = [eI_CH05.gazePosHeadFiltX eI_CH05.gazePosHeadFiltY eI_CH05.gazePosHeadFiltZ] / 1000;
+%     gH_CH05 = [eI_CH05.gazePosHeadFiltX eI_CH05.gazePosHeadFiltY eI_CH05.gazePosHeadFiltZ] / 1000;
     gH_CH20 = [eI_CH20.gazePosHeadFiltX eI_CH20.gazePosHeadFiltY eI_CH20.gazePosHeadFiltZ] / 1000;
     gH_CH40 = [eI_CH40.gazePosHeadFiltX eI_CH40.gazePosHeadFiltY eI_CH40.gazePosHeadFiltZ] / 1000;
     gH_CH60 = [eI_CH60.gazePosHeadFiltX eI_CH60.gazePosHeadFiltY eI_CH60.gazePosHeadFiltZ] / 1000;
     gH_L10 = [eI_L10.gazePosHeadFiltX eI_L10.gazePosHeadFiltY eI_L10.gazePosHeadFiltZ] / 1000;
-    gH_CH05 = gH_CH05(~any(isnan(gH_CH05), 2), :);
+%     gH_CH05 = gH_CH05(~any(isnan(gH_CH05), 2), :);
     gH_CH20 = gH_CH20(~any(isnan(gH_CH20), 2), :);
     gH_CH40 = gH_CH40(~any(isnan(gH_CH40), 2), :);
     gH_CH60 = gH_CH60(~any(isnan(gH_CH60), 2), :);
     gH_L10 = gH_L10(~any(isnan(gH_L10), 2), :);
     % This is gaze position in world space
-    gW_CH05 = [eI_CH05.gazePosWorldFiltX eI_CH05.gazePosWorldFiltY eI_CH05.gazePosWorldFiltZ] / 1000;
+%     gW_CH05 = [eI_CH05.gazePosWorldFiltX eI_CH05.gazePosWorldFiltY eI_CH05.gazePosWorldFiltZ] / 1000;
     gW_CH20 = [eI_CH20.gazePosWorldFiltX eI_CH20.gazePosWorldFiltY eI_CH20.gazePosWorldFiltZ] / 1000;
     gW_CH40 = [eI_CH40.gazePosWorldFiltX eI_CH40.gazePosWorldFiltY eI_CH40.gazePosWorldFiltZ] / 1000;
     gW_CH60 = [eI_CH60.gazePosWorldFiltX eI_CH60.gazePosWorldFiltY eI_CH60.gazePosWorldFiltZ] / 1000;
     gW_L10 = [eI_L10.gazePosWorldFiltX eI_L10.gazePosWorldFiltY eI_L10.gazePosWorldFiltZ] / 1000;
-    gW_CH05 = gW_CH05(~any(isnan(gW_CH05), 2), :);
+%     gW_CH05 = gW_CH05(~any(isnan(gW_CH05), 2), :);
     gW_CH20 = gW_CH20(~any(isnan(gW_CH20), 2), :);
     gW_CH40 = gW_CH40(~any(isnan(gW_CH40), 2), :);
     gW_CH60 = gW_CH60(~any(isnan(gW_CH60), 2), :);
@@ -807,38 +1429,38 @@ for i = 1:height(all_user_info)
     % Store
     if all_user_info.ETDDC(i) == 0
         % Save 3D head rotation
-        evol0.rotVel3D.CH05 = [evol0.rotVel3D.CH05; nanmedian(hI_CH05.rotVel3DFilt)];
+%         evol0.rotVel3D.CH05 = [evol0.rotVel3D.CH05; nanmedian(hI_CH05.rotVel3DFilt)];
         evol0.rotVel3D.CH20 = [evol0.rotVel3D.CH20; nanmedian(hI_CH20.rotVel3DFilt)];
         evol0.rotVel3D.CH40 = [evol0.rotVel3D.CH40; nanmedian(hI_CH40.rotVel3DFilt)];
         evol0.rotVel3D.CH60 = [evol0.rotVel3D.CH60; nanmedian(hI_CH60.rotVel3DFilt)];
         evol0.rotVel3D.L10  = [evol0.rotVel3D.L10;  nanmedian(hI_L10.rotVel3DFilt)];
         % Save gaze in head
-        evol0.gazeHeadAngle.CH05 = [evol0.gazeHeadAngle.CH05; nanmedian(angleMagnitude(gH_CH05))];
+%         evol0.gazeHeadAngle.CH05 = [evol0.gazeHeadAngle.CH05; nanmedian(angleMagnitude(gH_CH05))];
         evol0.gazeHeadAngle.CH20 = [evol0.gazeHeadAngle.CH20; nanmedian(angleMagnitude(gH_CH20))];
         evol0.gazeHeadAngle.CH40 = [evol0.gazeHeadAngle.CH40; nanmedian(angleMagnitude(gH_CH40))];
         evol0.gazeHeadAngle.CH60 = [evol0.gazeHeadAngle.CH60; nanmedian(angleMagnitude(gH_CH60))];
         evol0.gazeHeadAngle.L10  = [evol0.gazeHeadAngle.L10;  nanmedian(angleMagnitude(gH_L10))];
         % Save gaze in world
-        evol0.gazeWorldAngle.CH05 = [evol0.gazeWorldAngle.CH05; nanmedian(angleMagnitude(gW_CH05))];
+%         evol0.gazeWorldAngle.CH05 = [evol0.gazeWorldAngle.CH05; nanmedian(angleMagnitude(gW_CH05))];
         evol0.gazeWorldAngle.CH20 = [evol0.gazeWorldAngle.CH20; nanmedian(angleMagnitude(gW_CH20))];
         evol0.gazeWorldAngle.CH40 = [evol0.gazeWorldAngle.CH40; nanmedian(angleMagnitude(gW_CH40))];
         evol0.gazeWorldAngle.CH60 = [evol0.gazeWorldAngle.CH60; nanmedian(angleMagnitude(gW_CH60))];
         evol0.gazeWorldAngle.L10  = [evol0.gazeWorldAngle.L10;  nanmedian(angleMagnitude(gW_L10))];
     else
         % Save 3D head rotation
-        evol1.rotVel3D.CH05 = [evol1.rotVel3D.CH05; nanmedian(hI_CH05.rotVel3DFilt)];
+%         evol1.rotVel3D.CH05 = [evol1.rotVel3D.CH05; nanmedian(hI_CH05.rotVel3DFilt)];
         evol1.rotVel3D.CH20 = [evol1.rotVel3D.CH20; nanmedian(hI_CH20.rotVel3DFilt)];
         evol1.rotVel3D.CH40 = [evol1.rotVel3D.CH40; nanmedian(hI_CH40.rotVel3DFilt)];
         evol1.rotVel3D.CH60 = [evol1.rotVel3D.CH60; nanmedian(hI_CH60.rotVel3DFilt)];
         evol1.rotVel3D.L10  = [evol1.rotVel3D.L10;  nanmedian(hI_L10.rotVel3DFilt)];
         % Save gaze in head
-        evol1.gazeHeadAngle.CH05 = [evol1.gazeHeadAngle.CH05; nanmedian(angleMagnitude(gH_CH05))];
+%         evol1.gazeHeadAngle.CH05 = [evol1.gazeHeadAngle.CH05; nanmedian(angleMagnitude(gH_CH05))];
         evol1.gazeHeadAngle.CH20 = [evol1.gazeHeadAngle.CH20; nanmedian(angleMagnitude(gH_CH20))];
         evol1.gazeHeadAngle.CH40 = [evol1.gazeHeadAngle.CH40; nanmedian(angleMagnitude(gH_CH40))];
         evol1.gazeHeadAngle.CH60 = [evol1.gazeHeadAngle.CH60; nanmedian(angleMagnitude(gH_CH60))];
         evol1.gazeHeadAngle.L10  = [evol1.gazeHeadAngle.L10;  nanmedian(angleMagnitude(gH_L10))];
         % Save gaze in world
-        evol1.gazeWorldAngle.CH05 = [evol1.gazeWorldAngle.CH05; nanmedian(angleMagnitude(gW_CH05))];
+%         evol1.gazeWorldAngle.CH05 = [evol1.gazeWorldAngle.CH05; nanmedian(angleMagnitude(gW_CH05))];
         evol1.gazeWorldAngle.CH20 = [evol1.gazeWorldAngle.CH20; nanmedian(angleMagnitude(gW_CH20))];
         evol1.gazeWorldAngle.CH40 = [evol1.gazeWorldAngle.CH40; nanmedian(angleMagnitude(gW_CH40))];
         evol1.gazeWorldAngle.CH60 = [evol1.gazeWorldAngle.CH60; nanmedian(angleMagnitude(gW_CH60))];
@@ -852,7 +1474,7 @@ fields = {'rotVel3D', 'gazeHeadAngle', 'gazeWorldAngle'};
 metrics = {'3D head movement', 'Gaze in head', 'Gaze in world'};
 
 % This function does both plotting and GLME because it is slightly funky
-plotEvolutionInformation(evol0, evol1, supraLabels, fields, metrics, 'ET-DDC Off', 'ET-DDC On', SSQ_totalSubscale, VIMSSQ_total);
+plotEvolutionInformation(evol0, evol1, supraLabels, fields, metrics, 'ET-DDC Off', 'ET-DDC On', subjects_OFF, subjects_ON, SSQ_totalSubscale, VIMSSQ_total);
 
 
 fprintf('Now analyzing specific eye movements\n');
@@ -909,23 +1531,23 @@ plotEyeMetricInfo(allFixDur0, allFixDur1, ...
                     [dirPath 'FIX_'], 'Fixation', ...
                     'ET-DDC Off', 'ET-DDC On');
 
-% % Run GLME for both variables
-% data_table = table(allFixDur, condFix, SSQ_totalSubscale, VIMSSQ_total, userFix);
-% glme = fitglme(data_table, 'allFixDur ~ 1 + condFix*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condFix:SSQ_totalSubscale:VIMSSQ_total + (1 | userFix)');
-% analyzeGlmeEffects(glme, data_table, 'condFix', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Fix_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condFix, allFixDur, VIMSSQ_total, userFix);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condFix*allFixDur + allFixDur*VIMSSQ_total + condFix:allFixDur:VIMSSQ_total +  (1 | userFix)');
-% analyzeGlmeEffects(glme, data_table, 'condFix', 'allFixDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Fix_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(fixPerSec, condFix, SSQ_totalSubscale, VIMSSQ_total, userFix);
-% glme = fitglme(data_table, 'fixPerSec ~ 1 + condFix*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condFix:SSQ_totalSubscale:VIMSSQ_total + (1 | userFix)');
-% analyzeGlmeEffects(glme, data_table, 'condFix', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Fix_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condFix, fixPerSec, VIMSSQ_total, userFix);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condFix*fixPerSec + fixPerSec*VIMSSQ_total + condFix:fixPerSec:VIMSSQ_total +  (1 | userFix)');
-% analyzeGlmeEffects(glme, data_table, 'condFix', 'fixPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Fix_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
-% 
+% Run GLME for both variables
+data_table = table(allFixDur, condFix, SSQ_totalSubscale, VIMSSQ_total, userFix);
+glme = fitglme(data_table, 'allFixDur ~ 1 + condFix + SSQ_totalSubscale + SSQ_totalSubscale:condFix + SSQ_totalSubscale:VIMSSQ_total + condFix:SSQ_totalSubscale:VIMSSQ_total + (1 | userFix)');
+analyzeGlmeEffects(glme, data_table, 'condFix', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Fix_Dur_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condFix, allFixDur, VIMSSQ_total, userFix);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condFix + allFixDur + VIMSSQ_total + allFixDur:condFix + (1 | userFix)');
+analyzeGlmeEffects(glme, data_table, 'condFix', 'allFixDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Fix_Dur_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+data_table = table(fixPerSec, condFix, SSQ_totalSubscale, VIMSSQ_total, userFix);
+glme = fitglme(data_table, 'fixPerSec ~ 1 + condFix + SSQ_totalSubscale + SSQ_totalSubscale:condFix + SSQ_totalSubscale:VIMSSQ_total + condFix:SSQ_totalSubscale:VIMSSQ_total + (1 | userFix)');
+analyzeGlmeEffects(glme, data_table, 'condFix', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Fix_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condFix, fixPerSec, VIMSSQ_total, userFix);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + 1 + condFix + fixPerSec + VIMSSQ_total + fixPerSec:condFix + (1 | userFix)');
+analyzeGlmeEffects(glme, data_table, 'condFix', 'fixPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Fix_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
 
 
 
@@ -992,23 +1614,23 @@ plotEyeMetricInfo(allSacDur0, allSacDur1, ...
                     [dirPath 'SAC_'], 'Saccade', ...
                     'ET-DDC Off', 'ET-DDC On');
 
-% % Run GLME for both variables
-% data_table = table(allSacDur, condSac, SSQ_totalSubscale, VIMSSQ_total, userSac);
-% glme = fitglme(data_table, 'allSacDur ~ 1 + condSac*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condSac:SSQ_totalSubscale:VIMSSQ_total + (1 | userSac)');
-% analyzeGlmeEffects(glme, data_table, 'condSac', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Sac_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condSac, allSacDur, VIMSSQ_total, userSac);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condSac*allSacDur + allSacDur*VIMSSQ_total + condSac:allSacDur:VIMSSQ_total +  (1 | userSac)');
-% analyzeGlmeEffects(glme, data_table, 'condSac', 'allSacDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Sac_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(sacPerSec, condSac, SSQ_totalSubscale, VIMSSQ_total, userSac);
-% glme = fitglme(data_table, 'sacPerSec ~ 1 + condSac*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condSac:SSQ_totalSubscale:VIMSSQ_total + (1 | userSac)');
-% analyzeGlmeEffects(glme, data_table, 'condSac', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Sac_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condSac, sacPerSec, VIMSSQ_total, userSac);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condSac*sacPerSec + sacPerSec*VIMSSQ_total + condSac:sacPerSec:VIMSSQ_total +  (1 | userSac)');
-% analyzeGlmeEffects(glme, data_table, 'condSac', 'sacPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Sac_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
-% 
+% Run GLME for both variables
+data_table = table(allSacDur, condSac, SSQ_totalSubscale, VIMSSQ_total, userSac);
+glme = fitglme(data_table, 'allSacDur ~ 1 + condSac + SSQ_totalSubscale + SSQ_totalSubscale:condSac + SSQ_totalSubscale:VIMSSQ_total + condSac:SSQ_totalSubscale:VIMSSQ_total + (1 | userSac)');
+analyzeGlmeEffects(glme, data_table, 'condSac', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Sac_Dur_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condSac, allSacDur, VIMSSQ_total, userSac);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~  1 + condSac + allSacDur + VIMSSQ_total + allSacDur:condSac + (1 | userSac)');
+analyzeGlmeEffects(glme, data_table, 'condSac', 'allSacDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Sac_Dur_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+data_table = table(sacPerSec, condSac, SSQ_totalSubscale, VIMSSQ_total, userSac);
+glme = fitglme(data_table, 'sacPerSec ~ 1 + condSac + SSQ_totalSubscale + SSQ_totalSubscale:condSac + SSQ_totalSubscale:VIMSSQ_total + condSac:SSQ_totalSubscale:VIMSSQ_total + (1 | userSac)');
+analyzeGlmeEffects(glme, data_table, 'condSac', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Sac_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condSac, sacPerSec, VIMSSQ_total, userSac);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condSac + sacPerSec + VIMSSQ_total + sacPerSec:condSac + (1 | userSac)');
+analyzeGlmeEffects(glme, data_table, 'condSac', 'sacPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Sac_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
 
 
 
@@ -1064,23 +1686,23 @@ plotEyeMetricInfo(allBliDur0, allBliDur1, ...
                     [dirPath 'BLI_'], 'Blink', ...
                     'ET-DDC Off', 'ET-DDC On');
 
-% % Run GLME for both variables
-% data_table = table(allBliDur, condBli, SSQ_totalSubscale, VIMSSQ_total, userBli);
-% glme = fitglme(data_table, 'allBliDur ~ 1 + condBli*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condBli:SSQ_totalSubscale:VIMSSQ_total + (1 | userBli)');
-% analyzeGlmeEffects(glme, data_table, 'condBli', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Bli_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condBli, allBliDur, VIMSSQ_total, userBli);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condBli*allBliDur + allBliDur*VIMSSQ_total + condBli:allBliDur:VIMSSQ_total +  (1 | userBli)');
-% analyzeGlmeEffects(glme, data_table, 'condBli', 'allBliDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Bli_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(bliPerSec, condBli, SSQ_totalSubscale, VIMSSQ_total, userBli);
-% glme = fitglme(data_table, 'bliPerSec ~ 1 + condBli*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condBli:SSQ_totalSubscale:VIMSSQ_total + (1 | userBli)');
-% analyzeGlmeEffects(glme, data_table, 'condBli', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Bli_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condBli, bliPerSec, VIMSSQ_total, userBli);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condBli*bliPerSec + bliPerSec*VIMSSQ_total + condBli:bliPerSec:VIMSSQ_total +  (1 | userBli)');
-% analyzeGlmeEffects(glme, data_table, 'condBli', 'bliPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Bli_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
-% 
+% Run GLME for both variables
+data_table = table(allBliDur, condBli, SSQ_totalSubscale, VIMSSQ_total, userBli);
+glme = fitglme(data_table, 'allBliDur ~ 1 + condBli + SSQ_totalSubscale + SSQ_totalSubscale:condBli + SSQ_totalSubscale:VIMSSQ_total + condBli:SSQ_totalSubscale:VIMSSQ_total + (1 | userBli)');
+analyzeGlmeEffects(glme, data_table, 'condBli', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Bli_Dur_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condBli, allBliDur, VIMSSQ_total, userBli);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~  1 + condBli + allBliDur + VIMSSQ_total + allBliDur:condBli + (1 | userBli)');
+analyzeGlmeEffects(glme, data_table, 'condBli', 'allBliDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Bli_Dur_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+data_table = table(bliPerSec, condBli, SSQ_totalSubscale, VIMSSQ_total, userBli);
+glme = fitglme(data_table, 'bliPerSec ~ 1 + condBli + SSQ_totalSubscale + SSQ_totalSubscale:condBli + SSQ_totalSubscale:VIMSSQ_total + condBli:SSQ_totalSubscale:VIMSSQ_total + (1 | userBli)');
+analyzeGlmeEffects(glme, data_table, 'condBli', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Bli_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condBli, bliPerSec, VIMSSQ_total, userBli);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condBli + bliPerSec + VIMSSQ_total + bliPerSec:condBli + (1 | userBli)');
+analyzeGlmeEffects(glme, data_table, 'condBli', 'bliPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Bli_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
 
 
 % =============================================================== %
@@ -1135,46 +1757,46 @@ plotEyeMetricInfo(allVorDur0, allVorDur1, ...
                     [dirPath 'VOR_'], 'VOR', ...
                     'ET-DDC Off', 'ET-DDC On');
 
-% % Run GLME for both variables
-% data_table = table(allVorDur, condVor, SSQ_totalSubscale, VIMSSQ_total, userVor);
-% glme = fitglme(data_table, 'allVorDur ~ 1 + condVor*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condVor:SSQ_totalSubscale:VIMSSQ_total + (1 | userVor)');
-% analyzeGlmeEffects(glme, data_table, 'condVor', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Vor_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condVor, allVorDur, VIMSSQ_total, userVor);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condVor*allVorDur + allVorDur*VIMSSQ_total + condVor:allVorDur:VIMSSQ_total +  (1 | userVor)');
-% analyzeGlmeEffects(glme, data_table, 'condVor', 'allVorDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Vor_Dur_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(vorPerSec, condVor, SSQ_totalSubscale, VIMSSQ_total, userVor);
-% glme = fitglme(data_table, 'vorPerSec ~ 1 + condVor*SSQ_totalSubscale + SSQ_totalSubscale*VIMSSQ_total + condVor:SSQ_totalSubscale:VIMSSQ_total + (1 | userVor)');
-% analyzeGlmeEffects(glme, data_table, 'condVor', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Vor_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
-% 
-% data_table = table(SSQ_totalSubscale, condVor, vorPerSec, VIMSSQ_total, userVor);
-% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condVor*vorPerSec + vorPerSec*VIMSSQ_total + condVor:vorPerSec:VIMSSQ_total +  (1 | userVor)');
-% analyzeGlmeEffects(glme, data_table, 'condVor', 'vorPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Vor_PerSec_'], 'ET-DDC Off', 'ET-DDC On');
+% Run GLME for both variables
+data_table = table(allVorDur, condVor, SSQ_totalSubscale, VIMSSQ_total, userVor);
+glme = fitglme(data_table, 'allVorDur ~  1 + condVor + SSQ_totalSubscale + SSQ_totalSubscale:condVor + SSQ_totalSubscale:VIMSSQ_total + condVor:SSQ_totalSubscale:VIMSSQ_total + (1 | userVor)');
+analyzeGlmeEffects(glme, data_table, 'condVor', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Vor_Dur_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condVor, allVorDur, VIMSSQ_total, userVor);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condVor + allVorDur + VIMSSQ_total + allVorDur:condVor + (1 | userVor)');
+analyzeGlmeEffects(glme, data_table, 'condVor', 'allVorDur', 'VIMSSQ_total', [dirPath 'SA_SSQ_Vor_Dur_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+data_table = table(vorPerSec, condVor, SSQ_totalSubscale, VIMSSQ_total, userVor);
+glme = fitglme(data_table, 'vorPerSec ~ 1 + condVor + SSQ_totalSubscale + SSQ_totalSubscale:condVor + SSQ_totalSubscale:VIMSSQ_total + condVor:SSQ_totalSubscale:VIMSSQ_total + (1 | userVor)');
+analyzeGlmeEffects(glme, data_table, 'condVor', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath 'SA_Vor_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 1);
+
+data_table = table(SSQ_totalSubscale, condVor, vorPerSec, VIMSSQ_total, userVor);
+glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + condVor + vorPerSec + VIMSSQ_total + vorPerSec:condVor + (1 | userVor)');
+analyzeGlmeEffects(glme, data_table, 'condVor', 'vorPerSec', 'VIMSSQ_total', [dirPath 'SA_SSQ_Vor_PerSec_'], 'ET-DDC Off', 'ET-DDC On', 2);
 
 
 
-% Additional statistical tests
-outputString = '';
-% Create a string to capture the display output
-% Start with gaze in head and world
-outputString = [outputString evalc("performNormalityAndTtest(gazeHead0.L10.headRawGazeAngleMagn', gazeHead1.L10.headRawGazeAngleMagn', '[Gaze in head raw angle magnitude]')")];
-outputString = [outputString evalc("performNormalityAndTtest(gazeWorld0.L10.worldRawGazeAngleMagn, gazeWorld1.L10.worldRawGazeAngleMagn', '[Gaze in world raw angle magnitude]')")];
-% Continue with fix in head and world
+% % Additional statistical tests
+% outputString = '';
+% % Create a string to capture the display output
+% % Start with gaze in head and world
+% outputString = [outputString evalc("performNormalityAndTtest(gazeHead0.L10.headRawGazeAngleMagn', gazeHead1.L10.headRawGazeAngleMagn', '[Gaze in head raw angle magnitude]')")];
+% outputString = [outputString evalc("performNormalityAndTtest(gazeWorld0.L10.worldRawGazeAngleMagn, gazeWorld1.L10.worldRawGazeAngleMagn', '[Gaze in world raw angle magnitude]')")];
+% % Continue with fix in head and world
 % outputString = [outputString evalc('performNormalityAndTtest(headFixAngleMagn0, headFixAngleMagn1, "[Fix in head angle magnitude]")')];
 % outputString = [outputString evalc('performNormalityAndTtest(worldFixAngleMagn0, worldFixAngleMagn1, "[Fix in world angle magnitude]")')];
 % outputString = [outputString evalc('performNormalityAndTtest(headFixThetaMagn0, headFixThetaMagn1, "[Fix in head theta magnitude]")')];
 % outputString = [outputString evalc('performNormalityAndTtest(worldFixThetaMagn0, worldFixThetaMagn0, "[Fix in world theta magnitude]")')];
 % outputString = [outputString evalc('performNormalityAndTtest(headFixPhiMagn0, headFixPhiMagn1, "[Fix in head phi magnitude]")')];
 % outputString = [outputString evalc('performNormalityAndTtest(worldFixPhiMagn0, worldFixPhiMagn0, "[Fix in world phi magnitude]")')];
-% Check head velocities
-outputString = [outputString evalc('performNormalityAndTtest(rotVel0, rotVel1, "[2D head velocity]")')];
-outputString = [outputString evalc('performNormalityAndTtest(rotVel3D0, rotVel3D1, "[3D head velocity]")')];
-% Check eye movements per second
-outputString = [outputString evalc('performNormalityAndTtest(fixPerSec0, fixPerSec1, "[Fixations per second]")')];
-outputString = [outputString evalc('performNormalityAndTtest(sacPerSec0, sacPerSec1, "[Saccades per second]")')];
-outputString = [outputString evalc('performNormalityAndTtest(bliPerSec0, bliPerSec1, "[Blink per second]")')];
-outputString = [outputString evalc('performNormalityAndTtest(vorPerSec0, vorPerSec1, "[VOR per second]")')];
+% % Check head velocities
+% outputString = [outputString evalc('performNormalityAndTtest(rotVel0, rotVel1, "[2D head velocity]")')];
+% outputString = [outputString evalc('performNormalityAndTtest(rotVel3D0, rotVel3D1, "[3D head velocity]")')];
+% % Check eye movements per second
+% outputString = [outputString evalc('performNormalityAndTtest(fixPerSec0, fixPerSec1, "[Fixations per second]")')];
+% outputString = [outputString evalc('performNormalityAndTtest(sacPerSec0, sacPerSec1, "[Saccades per second]")')];
+% outputString = [outputString evalc('performNormalityAndTtest(bliPerSec0, bliPerSec1, "[Blink per second]")')];
+% outputString = [outputString evalc('performNormalityAndTtest(vorPerSec0, vorPerSec1, "[VOR per second]")')];
 
 % Open the file for writing
 fileID = fopen('results/ALL_Normality_TTests.txt', 'w');
@@ -1832,7 +2454,18 @@ function heatmaps = plotGazeData(data0, data1, supraLabel, coordSys, label0, lab
     % fprintf('D1 PHI: Mean %0.2f - Median %0.2f - STD %0.2f\n\n', mean(d1(:, 2)), median(d1(:, 2)), std(d1(:, 2)));
 end
 
-function analyzeGlmeEffects(glme, data_table, group, factor1, factor2, supraLabel, label0, label1)
+%
+% Type 1
+% data_table = table(worldHeadAngleMagn, group, SSQ_totalSubscale, VIMSSQ_total, subjects);
+% glme = fitglme(data_table, 'worldHeadAngleMagn ~ 1 + group + SSQ_totalSubscale + SSQ_totalSubscale:group + SSQ_totalSubscale:VIMSSQ_total + group:SSQ_totalSubscale:VIMSSQ_total + (1 | subjects)');
+% analyzeGlmeEffects(glme, data_table, 'group', 'SSQ_totalSubscale', 'VIMSSQ_total', [dirPath2 field 'SA_HIWorld_'], 'ET-DDC Off', 'ET-DDC On', 1);
+% 
+% Type 2
+% data_table = table(SSQ_totalSubscale, group, worldHeadAngleMagn, VIMSSQ_total, subjects);
+% glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group + headRawGazeAngleMagn + VIMSSQ_total + headRawGazeAngleMagn:group + (1 | subjects)');
+% analyzeGlmeEffects(glme, data_table, 'group', 'worldHeadAngleMagn', 'VIMSSQ_total', [dirPath2 field 'SA_SSQ_HIWorld_'], 'ET-DDC Off', 'ET-DDC On', 2);
+
+function analyzeGlmeEffects(glme, data_table, group, factor1, factor2, supraLabel, label0, label1, type)
     % glme is the fit glme model
     %
     % data_table is the original data table that was used to run the
@@ -1843,7 +2476,8 @@ function analyzeGlmeEffects(glme, data_table, group, factor1, factor2, supraLabe
     
     % We first dump the GLME results in a file.
     % Create a string to capture the display output
-    outputString = evalc('disp(glme)');
+    format shortg;
+    outputString = evalc("disp(glme)");
     % Open the file for writing
     fileID = fopen([supraLabel 'GLME.txt'], 'w');
     % Write the output string to the file
@@ -1857,109 +2491,189 @@ function analyzeGlmeEffects(glme, data_table, group, factor1, factor2, supraLabe
 
     % We then plot some additional higher-order interactions
     
+    
     % Extract GLME coefficients
     coefficients = glme.Coefficients.Estimate;
-    % Extract data from the table
-    groupData = data_table.(group);
-    factor1Data = data_table.(factor1);
-    factor2Data = data_table.(factor2);
 
-    % Generate interaction terms
-    interaction_group_factor1 = groupData .* factor1Data;
-    interaction_factor1_factor2 = factor1Data .* factor2Data;
-    interaction_thirdLevel = groupData .* factor1Data .* factor2Data;
-
-    % Predict response
-    predictedResponse = coefficients(1) + ...
-                         coefficients(2) * groupData + ...
-                         coefficients(3) * factor1Data + ...
-                         coefficients(4) * factor2Data + ...
-                         coefficients(5) * interaction_group_factor1 + ...
-                         coefficients(6) * interaction_factor1_factor2 + ...
-                         coefficients(7) * interaction_thirdLevel;
-
-    % Get unique group labels and assign colors
-    uniqueGroups = unique(groupData);
-    colors = lines(length(uniqueGroups));
-    labels = {label0, label1};
-
-    % Visualize second-order interaction with separate regression lines for each group
-    figure('Position', [100, 100, 1400, 800], 'Visible', 'off');
-    hold on;
-    % Scatter points and fit regression lines for each group
-    for i = 1:length(uniqueGroups)
-        idx = ismember(groupData, uniqueGroups(i));
-        scatter(factor1Data(idx), predictedResponse(idx), 50, colors(i, :), 'filled', 'DisplayName', labels{i});    
-        % Fit a linear model for each group
-        mdl = fitlm(factor1Data(idx), predictedResponse(idx));   
-        % Plot the regression line
-        xValues = linspace(min(factor1Data(idx)), max(factor1Data(idx)), 100);
-        yValues = predict(mdl, xValues');
-        plot(xValues, yValues, 'LineWidth', 2, 'Color', colors(i, :), 'DisplayName', labels{i});
-    end
-    hold off;
-    xlabel(factor1);
-    ylabel('Predicted Response');
-    title(['Second-Order Interaction: ' factor1]);
-    legend('show', 'Location', 'Best');
+    if type == 1
+        % Extract data from the table
+        groupData = data_table.(group);
+        factor1Data = data_table.(factor1);
+        factor2Data = data_table.(factor2);
     
-    % Inform that data has been saved
-    saveas(gcf, [supraLabel 'SecondOrder_1.png']);
-    fprintf(['[SAVED] Second order interaction plot --> ' supraLabel 'SecondOrder_1.png\n']);
+        % Generate interaction terms
+        interaction_group_factor1 = groupData .* factor1Data;
+        interaction_factor1_factor2 = factor1Data .* factor2Data;
+        interaction_thirdLevel = groupData .* factor1Data .* factor2Data;
+    
+        % Predict response
+        predictedResponse = coefficients(1) + ...
+                             coefficients(2) * groupData + ...
+                             coefficients(3) * factor1Data + ...
+                             coefficients(4) * interaction_group_factor1 + ...
+                             coefficients(5) * interaction_factor1_factor2 + ...
+                             coefficients(6) * interaction_thirdLevel;
+    
+        % Get unique group labels and assign colors
+        uniqueGroups = unique(groupData);
+        colors = lines(length(uniqueGroups));
+        labels = {label0, label1};
+    
+        % Visualize second-order interaction with separate regression lines for each group
+        figure('Position', [100, 100, 1400, 800], 'Visible', 'off');
+        hold on;
+        % Scatter points and fit regression lines for each group
+        for i = 1:length(uniqueGroups)
+            idx = ismember(groupData, uniqueGroups(i));
+            scatter(factor1Data(idx), predictedResponse(idx), 50, colors(i, :), 'filled', 'DisplayName', labels{i});    
+            % Fit a linear model for each group
+            mdl = fitlm(factor1Data(idx), predictedResponse(idx));   
+            % Plot the regression line
+            xValues = linspace(min(factor1Data(idx)), max(factor1Data(idx)), 100);
+            yValues = predict(mdl, xValues');
+            plot(xValues, yValues, 'LineWidth', 2, 'Color', colors(i, :), 'DisplayName', labels{i});
+            
+        end
+        hold off;
+        xlabel(factor1);
+        ylabel('Predicted Response');
+        title(['Second-Order Interaction: ' factor1]);
+        legend('show', 'Location', 'Best');
+        
+        % Inform that data has been saved
+        saveas(gcf, [supraLabel 'SecondOrder_1.png']);
+        fprintf(['[SAVED] Second order interaction plot --> ' supraLabel 'SecondOrder_1.png\n']);
+     
+        % Visualize third-order interaction with surface
+        figure('Position', [100, 100, 800, 800], 'Visible', 'off');
+        hold on;    
+        % Scatter points
+        for i = 1:length(uniqueGroups)
+            idx = ismember(groupData, uniqueGroups(i));
+            scatter3(factor1Data(idx), factor2Data(idx), predictedResponse(idx), 50, colors(i, :), 'filled');
+            % Create surface
+            [X, Y] = meshgrid(unique(factor1Data(idx)), unique(factor2Data(idx)));
+            warning('off', 'MATLAB:scatteredInterpolant:DupPtsAvValuesWarnId');
+            Z = griddata(factor1Data(idx), factor2Data(idx), predictedResponse(idx), X, Y);
+            warning('on', 'MATLAB:scatteredInterpolant:DupPtsAvValuesWarnId');
+            mesh(X, Y, Z, 'FaceAlpha', 0.5, 'EdgeAlpha', 0.5, 'FaceColor', colors(i, :)); 
+            hold on;
+        end 
+           
+        hold off;  
+        xlabel(strrep(factor1, '_', ''));
+        ylabel(strrep(factor2, '_', ''));
+        zlabel('Predicted Response');
+        title(['Third-Order Interaction: ' strrep(factor1, '_', '') ' and ' strrep(factor2, '_', '')]);
+        legend(arrayfun(@num2str, uniqueGroups, 'UniformOutput', false), 'Location', 'Best');
+    
+        % Inform that data has been saved
+        view(45, 30); % Adjust azimuth and elevation angles as needed
+        saveas(gcf, [supraLabel 'ThirdOrder.png']);
+        fprintf(['[SAVED] Thirs order interaction plot --> ' supraLabel 'ThirdOrder.png\n']);
+    
+    elseif type == 3
+        % Extract data from the table
+        groupData = data_table.(group);
+        factor1Data = data_table.(factor1);
 
+        % Generate interaction terms
+        interaction_group_factor1 = groupData .* factor1Data;
+        
+        % Predict response
+        predictedResponse = coefficients(1) + ...
+                             coefficients(2) * groupData + ...
+                             coefficients(3) * factor1Data + ...
+                             coefficients(4) * interaction_group_factor1;
 
-    figure('Position', [100, 100, 1400, 800], 'Visible', 'off');
-    hold on;
-    % Scatter points and fit regression lines for each group
-    for i = 1:length(uniqueGroups)
-        idx = ismember(groupData, uniqueGroups(i));
-        scatter(factor2Data(idx), predictedResponse(idx), 50, colors(i, :), 'filled', 'DisplayName', labels{i});   
+        % Get unique group labels and assign colors
+        uniqueGroups = unique(groupData);
+        colors = lines(length(uniqueGroups));
+        labels = {label0, label1};
+        
+        ci = coefCI(glme);
+        % Calculate standard errors for the plot
+        se = (ci(:, 2) - ci(:, 1)) / (2 * 1.96);  % Assuming 95% confidence intervals
+
+        % Visualize second-order interaction with separate regression lines for each group
+        figure('Position', [100, 100, 1400, 800], 'Visible', 'off');
+        hold on;
+        % Scatter points and fit regression lines for each group
+        
+        scatter(factor1Data, predictedResponse, 50, colors(1, :), 'filled', 'DisplayName', labels{1});    
         % Fit a linear model for each group
-        mdl = fitlm(factor2Data(idx), predictedResponse(idx)); 
+        mdl = fitlm(factor1Data, predictedResponse);   
         % Plot the regression line
-        xValues = linspace(min(factor2Data(idx)), max(factor2Data(idx)), 100);
+        xValues = linspace(min(factor1Data), max(factor1Data), 100);
         yValues = predict(mdl, xValues');
-        plot(xValues, yValues, 'LineWidth', 2, 'Color', colors(i, :), 'DisplayName', labels{i});
+        plot(xValues, yValues, 'LineWidth', 2, 'Color', colors(1, :), 'DisplayName', labels{1});
+        hold off;
+        xlabel(factor1);
+        ylabel('Predicted Response');
+        title(['Second-Order Interaction: ' factor1]);
+        legend('show', 'Location', 'Best');
+        
+        % Inform that data has been saved
+        saveas(gcf, [supraLabel 'FirstOrder_1.png']);
+        fprintf(['[SAVED] Second order interaction plot --> ' supraLabel 'FirstOrder_1.png\n']);
+    
+    
+        figure('Position', [100, 100, 1400, 800], 'Visible', 'off');
+        hold on;
+        % Scatter points and fit regression lines for each group
+
+        scatter(groupData, predictedResponse, 50, colors(1, :), 'filled', 'DisplayName', labels{1});   
+        % Fit a linear model for each group
+        mdl = fitlm(groupData, predictedResponse); 
+        % Plot the regression line
+        xValues = linspace(min(groupData), max(groupData), 100);
+        yValues = predict(mdl, xValues');
+        plot(xValues, yValues, 'LineWidth', 2, 'Color', colors(1, :), 'DisplayName', labels{1});
+
+        hold off;    
+        xlabel(group);
+        ylabel('Predicted Response');
+        title(['Second-Order Interaction: ' group]);
+        legend('show', 'Location', 'Best');
+    
+        % Inform that data has been saved
+        saveas(gcf, [supraLabel 'FirstOrder_2.png']);
+        fprintf(['[SAVED] Second order interaction plot --> ' supraLabel 'FirstOrder_2.png\n']);
+    
+        
+        % Visualize second-order interaction with separate regression lines for each group
+        figure('Position', [100, 100, 1400, 800], 'Visible', 'off');
+        hold on;
+        % Scatter points and fit regression lines for each group
+        for i = 1:length(uniqueGroups)
+            idx = ismember(groupData, uniqueGroups(i));
+            scatter(factor1Data(idx), predictedResponse(idx), 50, colors(i, :), 'filled', 'DisplayName', labels{i});    
+            % Fit a linear model for each group
+            mdl = fitlm(factor1Data(idx), predictedResponse(idx));   
+            % Plot the regression line
+            xValues = linspace(min(factor1Data(idx)), max(factor1Data(idx)), 100);
+            yValues = predict(mdl, xValues');
+            plot(xValues, yValues, 'LineWidth', 2, 'Color', colors(i, :), 'DisplayName', labels{i});
+            hold on;
+            % errorbar(factor1Data(idx), predictedResponse(idx), ones(1, length(factor1Data(idx))) * se(4), 'o-', 'LineWidth', 2, 'MarkerSize', 8, 'CapSize', 10);
+        end
+        hold off;
+        xlabel(factor1);
+        ylabel('Predicted Response');
+        title(['Second-Order Interaction: ' factor1]);
+        legend('show', 'Location', 'Best');
+        
+        % Inform that data has been saved
+        saveas(gcf, [supraLabel 'SecondOrder.png']);
+        fprintf(['[SAVED] Second order interaction plot --> ' supraLabel 'SecondOrder.png\n']);
+   
     end
-    hold off;    
-    xlabel(factor2);
-    ylabel('Predicted Response');
-    title(['Second-Order Interaction: ' factor2]);
-    legend('show', 'Location', 'Best');
-
-    % Inform that data has been saved
-    saveas(gcf, [supraLabel 'SecondOrder_2.png']);
-    fprintf(['[SAVED] Second order interaction plot --> ' supraLabel 'SecondOrder_2.png\n']);
-
-
-    % Visualize third-order interaction with surface
-    figure('Position', [100, 100, 800, 800], 'Visible', 'off');
-    hold on;    
-    % Scatter points
-    for i = 1:length(uniqueGroups)
-        idx = ismember(groupData, uniqueGroups(i));
-        scatter3(factor1Data(idx), factor2Data(idx), predictedResponse(idx), 50, colors(i, :), 'filled');
-    end 
-    % Create surface
-    [X, Y] = meshgrid(unique(factor1Data), unique(factor2Data));
-    warning('off', 'MATLAB:scatteredInterpolant:DupPtsAvValuesWarnId');
-    Z = griddata(factor1Data, factor2Data, predictedResponse, X, Y);
-    warning('on', 'MATLAB:scatteredInterpolant:DupPtsAvValuesWarnId');
-    mesh(X, Y, Z, 'FaceAlpha', 0.5, 'EdgeAlpha', 0.5);    
-    hold off;  
-    xlabel(factor1);
-    ylabel(factor2);
-    zlabel('Predicted Response');
-    title(['Third-Order Interaction: ' factor1 ' and ' factor2]);
-    legend(arrayfun(@num2str, uniqueGroups, 'UniformOutput', false), 'Location', 'Best');
-
-    % Inform that data has been saved
-    saveas(gcf, [supraLabel 'ThirdOrder.png']);
-    fprintf(['[SAVED] Thirs order interaction plot --> ' supraLabel 'ThirdOrder.png\n']);
+    
+    
 end
 
 % Todo --> Add statistical things when data is ready
-function plotEvolutionInformation(evol0, evol1, supraLabels, fields, metrics, label0, label1, SSQ_totalSubscale, VIMSSQ_total);
+function plotEvolutionInformation(evol0, evol1, supraLabels, fields, metrics, label0, label1, subjects_OFF, subjects_ON, SSQ_totalSubscale, VIMSSQ_total);
     % Complete argument information
 
 
@@ -1985,85 +2699,87 @@ function plotEvolutionInformation(evol0, evol1, supraLabels, fields, metrics, la
         % Top-left subplot is raw evolution for condition 0
         subplot(2, 2, 1);
         hold on;
-        plot([1, 2, 3, 4, 5], [data0.CH05, data0.CH20, data0.CH40, data0.CH60, data0.L10], 'o-', 'LineWidth', 3);
+        plot([1, 2, 3, 4],  [data0.CH20, data0.CH40, data0.CH60, data0.L10], 'o-', 'LineWidth', 3);
         hold off;
         % ylim([])
         xticks(1:5);
-        xticklabels({'CH05', 'CH20', 'CH40', 'CH60', 'L10'}); 
+        xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
         title([metric ' evolution - ' label0]);
         
         % Top-right subplot is raw evolution for condition 1
         subplot(2, 2, 2);
         hold on;
-        plot([1, 2, 3, 4, 5], [data1.CH05, data1.CH20, data1.CH40, data1.CH60, data1.L10], 'o-', 'LineWidth', 3);
+        plot([1, 2, 3, 4], [data1.CH20, data1.CH40, data1.CH60, data1.L10], 'o-', 'LineWidth', 3);
         hold off;
         % ylim([])
         xticks(1:5);
-        xticklabels({'CH05', 'CH20', 'CH40', 'CH60', 'L10'}); 
+        xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
         title([metric ' evolution - ' label1]);
         
         % Left subplot is normalized evolution for condition 0
         subplot(2, 2, 3);
         hold on;
-        plot([1, 2, 3, 4, 5], [ data0.CH05 - data0.CH05, ...
-                            data0.CH20 - data0.CH05,  ...
-                            data0.CH40 - data0.CH05,  ...
-                            data0.CH60 - data0.CH05,  ...
-                            data0.L10  - data0.CH05], ...
+        plot([1, 2, 3, 4], [
+                            data0.CH20 - data0.CH20,  ...
+                            data0.CH40 - data0.CH20,  ...
+                            data0.CH60 - data0.CH20,  ...
+                            data0.L10  - data0.CH20], ...
              'o-', 'LineWidth', 3);        
         hold off;
         % ylim([])
         xticks(1:5);
-        xticklabels({'CH05', 'CH20', 'CH40', 'CH60', 'L10'}); 
+        xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
         title([metric ' normalized evolution - ' label0]);
                 
         % Right subplot
         subplot(2, 2, 4);
         hold on;
-        plot([1, 2, 3, 4, 5], [ data1.CH05 - data1.CH05,  ...
-                            data1.CH20 - data1.CH05, ...
-                            data1.CH40 - data1.CH05, ...
-                            data1.CH60 - data1.CH05, ...
-                            data1.L10  - data1.CH05], ...
+        plot([1, 2, 3, 4], [ data1.CH20 - data1.CH20, ...
+                            data1.CH40 - data1.CH20, ...
+                            data1.CH60 - data1.CH20, ...
+                            data1.L10  - data1.CH20], ...
              'o-', 'LineWidth', 3);        
         hold off;
         % ylim([])
         xticks(1:5);
-        xticklabels({'CH05', 'CH20', 'CH40', 'CH60', 'L10'}); 
+        xticklabels({'CH20', 'CH40', 'CH60', 'L10'}); 
         title([metric ' normalized evolution - ' label1]);
 
         % Inform that data has been saved
         saveas(gcf, [supraLabel 'Evolution.png']);
         fprintf(['[SAVED] Evolution plot --> ' supraLabel 'Evolution.png\n']);
 
-        % % Join all evolutions together for statistical analyses
-        % evolOverTime = [data0.CH20; data0.CH40; data0.CH60; data0.L1; ...
-        %                 data1.CH20; data1.CH40; data1.CH60; data1.L10];
-        % % Condition (i.e., label0, label1)
-        % % We know there are 4 sets of the same length for both conditions
-        % group = [repmat(categorical(1), 1, 4 * numel(data0.CH20)), ...
-        %          repmat(categorical(2), 1, 4 * numel(data0.CH20))]';
-        % % Time chunk (1,2,3,4) is now also a factor
-        % timechunk = [repmat(1, 1, numel(data0.CH20)), ...
-        %              repmat(2, 1, numel(data0.CH20)), ...
-        %              repmat(3, 1, numel(data0.CH20)), ...
-        %              repmat(4, 1, numel(data0.CH20)), ...
-        %              repmat(1, 1, numel(data0.CH20)), ...
-        %              repmat(2, 1, numel(data0.CH20)), ...
-        %              repmat(3, 1, numel(data0.CH20)), ...
-        %              repmat(4, 1, numel(data0.CH20))]';
-        % 
-        % % Subjects follow a diff. structure than other analysis, cause each one
-        % % is included four times (one per chunk) per condition
-        % subjects = [subjects_OFF; subjects_OFF; subjects_OFF; subjects_OFF; ...
-        %             subjects_ON; subjects_ON; subjects_ON; subjects_ON];
-        % 
-        % % Create a table
-        % data_table = table(evolOverTime, group, timechunk, SSQ_totalSubscale, subjects);
-        % 
-        % % Fit the generalized linear mixed-effects model
-        % glme = fitglme(data_table, 'headOverTime ~ 1 + group*timechunk*SSQ_totalSubscale + (1 | subjects)');
-        % analyzeGlmeEffects(glme, data_table, 'group', 'timechunk', 'SSQ_totalSubscale', supraLabel, 'ET-DDC Off', 'ET-DDC On');
+        % Join all evolutions together for statistical analyses
+        evolOverTime = [data0.CH20; data0.CH40; data0.CH60; data0.L10; ...
+                        data1.CH20; data1.CH40; data1.CH60; data1.L10];
+        % Condition (i.e., label0, label1)
+        % We know there are 4 sets of the same length for both conditions
+        group = [repmat(categorical(1), 1, 4 * numel(data0.CH20)), ...
+                 repmat(categorical(2), 1, 4 * numel(data1.CH20))]';
+        % Time chunk (1,2,3,4) is now also a factor
+        timechunk = [repmat(1, 1, numel(data0.CH20)), ...
+                     repmat(2, 1, numel(data0.CH20)), ...
+                     repmat(3, 1, numel(data0.CH20)), ...
+                     repmat(4, 1, numel(data0.CH20)), ...
+                     repmat(1, 1, numel(data1.CH20)), ...
+                     repmat(2, 1, numel(data1.CH20)), ...
+                     repmat(3, 1, numel(data1.CH20)), ...
+                     repmat(4, 1, numel(data1.CH20))]';
+        
+        % Subjects follow a diff. structure than other analysis, cause each one
+        % is included four times (one per chunk) per condition
+        subjects = [subjects_OFF subjects_OFF subjects_OFF subjects_OFF ...
+                    subjects_ON subjects_ON subjects_ON subjects_ON]';
+        
+        % Create a table
+        data_table = table(evolOverTime, group, timechunk, subjects);
+        glme = fitglme(data_table, 'evolOverTime ~ 1 + group*timechunk + (1 | subjects)');
+        disp(glme);
+
+%         data_table = table(SSQ_totalSubscale, group, timechunk, evolOverTime, subjects);
+%         glme = fitglme(data_table, 'SSQ_totalSubscale ~ 1 + group:timechunk + group:evolOverTime + timechunk:evolOverTime + (1 | subjects)');
+%         analyzeGlmeEffects(glme, data_table, 'group', 'timechunk', 'evolOverTime', [supraLabel '_evol'], 'ET-DDC Off', 'ET-DDC On');
+%     
     end
 end
 

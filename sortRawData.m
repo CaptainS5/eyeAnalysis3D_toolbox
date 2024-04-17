@@ -13,7 +13,7 @@ format long;
 % EyeTrackerLog_YYYYMMdd-hhmmss.txt
 datapath = 'data\raw\study2\';
 % Create a directory to save results
-[status, msg, msgID] = mkdir([datapath, '..\pre_processed']);
+%[status, msg, msgID] = mkdir([datapath, '..\pre_processed']);
 
 
 % Get list of files. For now, it works writting all of them manually,
@@ -104,6 +104,7 @@ n_files = 0;
 
 %% ITERATE OVER ALL USER FILES
 for userFileI = 1:length(fileName)
+% for userFileI = length(fileName):-1:1 
     % Get user and session data
     % Use regular expressions to extract UserID and day
     userMatch = regexp(fileName{userFileI}, userIDPattern, 'tokens');
