@@ -250,7 +250,7 @@ while ii <= length(peakOnI)
         % two saccades are really close;
         % just go for the first point where acceleration drops below
         % threshold before the vel peak chunk, or right after the last saccade offset, whichever is later
-        onsetT = max([find(acc(1:peakOnI(ii))<baseAcc); offsetI(jj-1)+1]);
+        onsetT = max([find(acc(1:peakOnI(ii))<baseAcc); offsetI(jj-1)]);
 
         if vel(onsetT) > sacThres
             validP(ii) = 0;
