@@ -2,62 +2,137 @@
 % customize to prepare your raw data here; see readMe.md for
 % the final output needed for the eye movement analysis pipeline pre-processing
 % head and target data are optional
-clc; close all; clear
+clc; close all; clear all; warning off
 addpath(genpath('functions'))
 
 datapath = 'data\raw\';
 [status, msg, msgID] = mkdir([datapath, '..\pre_processed']);
-% fileName = {'EyeTrackerLog_20230717-141507.txt'};
-fileName = {'EyeTrackerLog_20230905-043027.txt'}; % assuming each file is data from one trial
+fileName = {'tobiipublisher.json'};
 
-for trialI = 1:length(fileName)
+% some format prep...
+rawVarNames_eye = {'left_gaze_origin_x', 'left_gaze_origin_y', 'left_gaze_origin_z', 'left_gaze_direction_x', 'left_gaze_direction_y', 'left_gaze_direction_z', ...
+    'left_pupil_center_x', 'left_pupil_center_y', 'left_pupil_center_z', 'left_pupil_entrance_x', 'left_pupil_entrance_y', 'left_pupil_entrance_z', ...
+    'left_pupil_diameter', ... %'left_blink', 
+    'right_gaze_origin_x', 'right_gaze_origin_y', 'right_gaze_origin_z', 'right_gaze_direction_x', 'right_gaze_direction_y', 'right_gaze_direction_z', ...
+    'right_pupil_center_x', 'right_pupil_center_y', 'right_pupil_center_z', 'right_pupil_entrance_x', 'right_pupil_entrance_y', 'right_pupil_entrance_z', ...
+    'right_pupil_diameter', ... %'right_blink', 
+    'combined_gaze_origin_x', 'combined_gaze_origin_y', 'combined_gaze_origin_z', 'combined_gaze_direction_x', 'combined_gaze_direction_y', 'combined_gaze_direction_z', ...
+    'combined_gaze_point_x', 'combined_gaze_point_y', 'combined_gaze_point_z', 'timestamp'}; % variable names for the dataRaw table
+
+fileVarNames_eye = {'left_eye.gaze.gaze_origin.z', 'left_eye.gaze.gaze_origin.x', 'left_eye.gaze.gaze_origin.y', 'left_eye.gaze.gaze_direction.z', 'left_eye.gaze.gaze_direction.x', 'left_eye.gaze.gaze_direction.y', ...
+    'left_eye.pupil_center.z', 'left_eye.pupil_center.x', 'left_eye.pupil_center.y', 'left_eye.pupil_entrance.z', 'left_eye.pupil_entrance.x', 'left_eye.pupil_entrance.y', ...
+    'left_eye.pupil_diameter', ... %'left_blink', 
+    'right_eye.gaze.gaze_origin.z', 'right_eye.gaze.gaze_origin.x', 'right_eye.gaze.gaze_origin.y', 'right_eye.gaze.gaze_direction.z', 'right_eye.gaze.gaze_direction.x', 'right_eye.gaze.gaze_direction.y', ...
+    'right_eye.pupil_center.x', 'right_eye.pupil_center.y', 'right_eye.pupil_center.z', 'right_eye.pupil_entrance.x', 'right_eye.pupil_entrance.y', 'right_eye.pupil_entrance.z', ...
+    'right_eye.pupil_diameter', ... %'left_blink', 
+    'combined.gaze.gaze_origin.z', 'combined.gaze.gaze_origin.x', 'combined.gaze.gaze_origin.y', 'combined.gaze.gaze_direction.z', 'combined.gaze.gaze_direction.x', 'combined.gaze.gaze_direction.y', ...
+    'combined.gaze_point.z', 'combined.gaze_point.x', 'combined.gaze_point.y', 'timestamp.nanoseconds'}; % variable names from the json file
+% note that here we switched the axis already
+
+rawVarNames_head = {'trans_x', 'trans_y', 'trans_z', ...
+    'ori_Qw', 'ori_Qx', 'ori_Qy', 'ori_Qz'}; % variable names for the dataRaw table
+
+fileVarNames_head = {'translation.z', 'translation.x', 'translation.y', ...
+    'rotation.w', 'rotation.z', 'rotation.x', 'rotation.y'}; % variable names from the json file
+% note that here we switched the axis already
+
+for fileI = 1:length(fileName)
     eyeTrial = [];
 
-    %% load raw data
-    opts = delimitedTextImportOptions('Delimiter', ';');%, 'DataLines', [1, 2]);
-    varNames = readtable([datapath, fileName{trialI}], opts);
-    varNames = varNames{1, :};
-    dataRaw = readtable([datapath, fileName{trialI}], 'Delimiter', ';'); % if it's already sorted into csv or similar tables
-
-    % cleaning the data
-    dataRaw.Properties.VariableNames = varNames;
-    idx = find(cellfun(@isempty, dataRaw.headpose_position_x));
-    dataRaw(idx, :) = [];
-    dataRaw.headpose_rotation_w = cellfun(@str2num, dataRaw.headpose_rotation_w);
-    dataRaw.headpose_rotation_x = cellfun(@str2num, dataRaw.headpose_rotation_x);
-    dataRaw.headpose_rotation_y = cellfun(@str2num, dataRaw.headpose_rotation_y);
-    dataRaw.headpose_rotation_z = cellfun(@str2num, dataRaw.headpose_rotation_z);
-    dataRaw.headpose_position_x = cellfun(@str2num, dataRaw.headpose_position_x);
-    dataRaw.headpose_position_y = cellfun(@str2num, dataRaw.headpose_position_y);
-    dataRaw.headpose_position_z = cellfun(@str2num, dataRaw.headpose_position_z);
-    dataRaw.left_blink(strcmp(dataRaw.left_blink, 'FALSE')) = {0};
-    dataRaw.left_blink(strcmp(dataRaw.left_blink, 'TRUE')) = {1};
-    dataRaw.right_blink(strcmp(dataRaw.right_blink, 'FALSE')) = {0};
-    dataRaw.right_blink(strcmp(dataRaw.right_blink, 'TRUE')) = {1};
-    dataRaw.left_blink = cell2mat(dataRaw.left_blink);
-    dataRaw.right_blink = cell2mat(dataRaw.right_blink);
-
-    % the sorted coordinate system is x+=forward, y+=left, z+=up, right-handed rotation,
-    % following the matlab plot3 default
-
     %% sort head data
-    % raw data coordinate system is? for now I'm assuming it's the same as
-    % Tobii eye data, so x+=left, y+=up, z+=forward, right-handed 
-    headOriQ = [dataRaw.headpose_rotation_w dataRaw.headpose_rotation_z dataRaw.headpose_rotation_x dataRaw.headpose_rotation_y];
-    headPos = [dataRaw.headpose_position_z dataRaw.headpose_position_x dataRaw.headpose_position_y];
-    timestamp = dataRaw.TimeMicroSec./1000000; % in seconds
-    trial = ones(size(timestamp))*trialI;
-    headFrameData = array2table([headOriQ headPos timestamp trial], 'VariableNames', ...
-        {'qW', 'qX', 'qY', 'qZ', 'posX', 'posY', 'posZ', 'timestamp', 'trial'});
+    % raw data is in meters and seconds, seems to be the same as the Tobii
+    % system, x+=left, y+=up, z+=forward, seems to be right-handed rotation already
+    jsonStr = fileread([datapath, 'example.json']);
+    % delete the dashes...
+    jsonStr = regexprep(jsonStr, '---', ',');
+    jsonStr = ['[' jsonStr(1:end-2) ']'];
+
+    % Convert JSON string to MATLAB variables
+    jsonData = jsondecode(jsonStr);
+
+    % organize the raw data
+    headRaw = table();
+    for ii = 1:size(jsonData, 1)
+        for jj = 1:length(rawVarNames_head)
+            if ~isempty(eval(['jsonData(ii).transform.', fileVarNames_head{jj}]))
+                headRaw.(rawVarNames_head{jj})(ii, 1) = eval(['jsonData(ii).transform.', fileVarNames_head{jj}]);
+            else
+                headRaw.(rawVarNames_head{jj})(ii, 1) = NaN;
+            end
+        end
+    end
+    % the axis switch is done; the sorted coordinate system is 
+    % x+=forward, y+=left, z+=up, right-handed rotation, following the matlab plot3 default
+
+    % sanity check, plot to see the coordinate systems
+    figure
+    % orientation
+    headOriQ = [headRaw.ori_Qw headRaw.ori_Qx headRaw.ori_Qy headRaw.ori_Qz];
+    eulYPR = quat2eul(headOriQ)/pi*180;
+
+    subplot(3, 2, 1)
+    plot(-eulYPR(:, 1))
+    ylabel('azimuth')
+    
+    subplot(3, 2, 3)
+    plot(-eulYPR(:, 2))
+    ylabel('elevation')
+
+    subplot(3, 2, 5)
+    plot(eulYPR(:, 3))
+    ylabel('roll (left negative)')
+
+    % translation
+    subplot(3, 2, 2)
+    plot(headRaw.trans_x)
+    ylabel('x')
+    
+    subplot(3, 2, 4)
+    plot(headRaw.trans_y)
+    ylabel('y')
+
+    subplot(3, 2, 6)
+    plot(headRaw.trans_z)
+    ylabel('z')
+
+    headPos = [headRaw.tran_x headRaw.trans_y headRaw.trans_z];
+%     timestamp = eyeRaw.TimeMicroSec./1000000; % in seconds
+%     file = ones(size(timestamp))*fileI;
+%     headFrameData = array2table([headOriQ headPos timestamp file], 'VariableNames', ...
+%         {'qW', 'qX', 'qY', 'qZ', 'posX', 'posY', 'posZ', 'timestamp', 'trial'});
 
     %% sort eye data
     % for Tobii, raw data coordinates are x+=left, y+=up, z+=forward
+    % Read JSON data from a file
+    jsonStr = fileread([datapath, fileName{fileI}]);
+    % Convert JSON string to MATLAB variables
+    jsonData = jsondecode(jsonStr);
+
+    % organize the raw data
+    eyeRaw = table();
+    for ii = 1:size(jsonData.data, 1)
+        for jj = 1:length(rawVarNames_eye)
+            if ~isempty(eval(['jsonData.data(ii).estimates.', fileVarNames_eye{jj}]))
+                eyeRaw.(rawVarNames_eye{jj})(ii, 1) = eval(['jsonData.data(ii).estimates.', fileVarNames_eye{jj}]);
+            else
+                eyeRaw.(rawVarNames_eye{jj})(ii, 1) = NaN;
+            end
+        end
+        %         eyeRaw.left_blink(strcmp(eyeRaw.left_blink, 'FALSE')) = {0};
+        %         eyeRaw.left_blink(strcmp(eyeRaw.left_blink, 'TRUE')) = {1};
+        %         eyeRaw.right_blink(strcmp(eyeRaw.right_blink, 'FALSE')) = {0};
+        %         eyeRaw.right_blink(strcmp(eyeRaw.right_blink, 'TRUE')) = {1};
+        %         eyeRaw.left_blink = cell2mat(eyeRaw.left_blink);
+        %         eyeRaw.right_blink = cell2mat(eyeRaw.right_blink);
+    end
+    % the axis switch is done; the sorted coordinate system is 
+    % x+=forward, y+=left, z+=up, following the matlab plot3 default
 
     % calculate cyclopean eye data based on binocular data
-    leftEyePos = [dataRaw.left_gaze_origin_mm_xyz_z dataRaw.left_gaze_origin_mm_xyz_x dataRaw.left_gaze_origin_mm_xyz_y]';
-    rightEyePos = [dataRaw.right_gaze_origin_mm_xyz_z dataRaw.right_gaze_origin_mm_xyz_x dataRaw.right_gaze_origin_mm_xyz_y]';
-    leftEyeDir = [dataRaw.left_gaze_direction_normalized_xyz_z dataRaw.left_gaze_direction_normalized_xyz_x dataRaw.left_gaze_direction_normalized_xyz_y]';
-    rightEyeDir = [dataRaw.right_gaze_direction_normalized_xyz_z dataRaw.right_gaze_direction_normalized_xyz_x dataRaw.right_gaze_direction_normalized_xyz_y]';
+    leftEyePos = [eyeRaw.left_gaze_origin_x eyeRaw.left_gaze_origin_y eyeRaw.left_gaze_origin_z]';
+    rightEyePos = [eyeRaw.right_gaze_origin_x eyeRaw.right_gaze_origin_y eyeRaw.right_gaze_origin_z]';
+    leftEyeDir = [eyeRaw.left_gaze_direction_x eyeRaw.left_gaze_direction_y eyeRaw.left_gaze_direction_z]';
+    rightEyeDir = [eyeRaw.right_gaze_direction_x eyeRaw.right_gaze_direction_y eyeRaw.right_gaze_direction_z]';
 
     [verDist verAngle gazePoints] = getVergence(leftEyePos, leftEyeDir, rightEyePos, rightEyeDir);
     % since the original coordinates are in mm, verDist is in mm
@@ -73,17 +148,32 @@ for trialI = 1:length(fileName)
     azimuthH = -atan2d(gazeVec(:, 2), gazeVec(:, 1));
     elevationH = atan2d(gazeVec(:, 3), sqrt( gazeVec(:, 1).^2 + gazeVec(:, 2).^2) );
 
-    blinkFlag = (dataRaw.left_blink + dataRaw.right_blink)/2;
+    % combined data
+    gazeDir_c = [eyeRaw.combined_gaze_direction_x eyeRaw.combined_gaze_direction_y eyeRaw.combined_gaze_direction_z];
+    azimuthH_c = -atan2d(gazeDir_c(:, 2), gazeDir_c(:, 1));
+    elevationH_c = atan2d(gazeDir_c(:, 3), sqrt( gazeDir_c(:, 1).^2 + gazeDir_c(:, 2).^2) );
 
-    timestamp = dataRaw.TimeMicroSec/1000000;
-    trial = ones(size(timestamp))*trialI;
-    eyeFrameData = array2table([gazeOrigin' gazePoints' azimuthH elevationH depth blinkFlag timestamp trial], 'VariableNames', ...
-        {'eyePosHeadX', 'eyePosHeadY', 'eyePosHeadZ', 'gazePosHeadX', 'gazePosHeadY', 'gazePosHeadZ', ...
-        'gazeOriHeadX', 'gazeOriHeadY', 'gazeDepth', 'blinkFlag', 'timestamp', 'trial'});
+%     blinkFlag = (eyeRaw.left_blink + eyeRaw.right_blink)/2;
+
+    file = ones(size(eyeRaw.timestamp))*fileI;
+
+    eyeFrameData = array2table([gazeOrigin' gazePoints' azimuthH elevationH depth ...
+        eyeRaw.combined_gaze_origin_x eyeRaw.combined_gaze_origin_y eyeRaw.combined_gaze_origin_z ...
+        eyeRaw.combined_gaze_point_x eyeRaw.combined_gaze_point_y eyeRaw.combined_gaze_point_z azimuthH_c elevationH_c ... % depth_t blinkFlag
+        eyeRaw.timestamp file], 'VariableNames', ...
+        {'eyePosHeadX_bino', 'eyePosHeadY_bino', 'eyePosHeadZ_bino', 'gazePosHeadX_bino', 'gazePosHeadY_bino', 'gazePosHeadZ_bino', ...
+        'gazeOriHeadX_bino', 'gazeOriHeadY_bino', 'gazeDepth_bino', ...
+        'eyePosHeadX_combined', 'eyePosHeadY_combined', 'eyePosHeadZ_combined', 'gazePosHeadX_combined', 'gazePosHeadY_combined', 'gazePosHeadZ_combined', ...
+        'gazeOriHeadX_combined', 'gazeOriHeadY_combined', ... %'gazeDepth_tobii', 'blinkFlag', 
+        'timestamp', 'fileN'});
+
+%     eyeFrameData = array2table([gazeOrigin' gazePoints' azimuthH elevationH depth blinkFlag timestamp trial], 'VariableNames', ...
+%         {'eyePosHeadX', 'eyePosHeadY', 'eyePosHeadZ', 'gazePosHeadX', 'gazePosHeadY', 'gazePosHeadZ', ...
+%         'gazeOriHeadX', 'gazeOriHeadY', 'gazeDepth', 'blinkFlag', 'timestamp', 'fileN'});
     % "eyePosHead" is the cyclopean eye position in eye tracker coordinates;
     % "gazePosHead" is the gaze point in eye tracker coordinates;
-    % gazeOri is azimuth and elevation; azimuth forward is 0, left is negative; 
-    % elevation forward is 0, down is negative; 
+    % gazeOri is azimuth and elevation; azimuth forward is 0, left is negative;
+    % elevation forward is 0, down is negative;
     % depth is in meters
     % "gazeOriHead" is eye in head gaze angle; gazeOriWorld and gazePosWorld will be
     % calculated later after time alignment of eye and head
@@ -98,7 +188,7 @@ for trialI = 1:length(fileName)
     %     % "missing frames" meaning that the timestamps are missing, not just no
     %     % signals but with timestamps
     %     [eyeTrial.sampleRate, eyeTrial.eyeAligned, eyeTrial.headAligned] = alignTime(eyeFrameData, 'headFrameTrial', headFrameData, 'sampleRateDesired', 240);
-    
+
     % if not doing the alignTime.m, just put the original data in, and manually put in the sampleRate
     % the sampleRate is mostly a reference for filtering choices
     eyeTrial.headAligned = headFrameData;
@@ -124,7 +214,7 @@ for trialI = 1:length(fileName)
 
     eyeTrial.eyeAligned = [eyeFrameData array2table([gazePosWorld gazeOriWorld], 'VariableNames', ...
         {'gazePosWorldX', 'gazePosWorldY', 'gazePosWorldZ', ...
-        'gazeOriWorldX', 'gazeOriWorldY'})];    
+        'gazeOriWorldX', 'gazeOriWorldY'})];
 
-    save([datapath, '..\pre_processed\data', num2str(trialI), '.mat'], 'eyeTrial')
+    save([datapath, '..\pre_processed\data', num2str(fileI), '.mat'], 'eyeTrial')
 end
