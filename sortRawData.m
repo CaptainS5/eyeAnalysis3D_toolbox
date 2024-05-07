@@ -109,17 +109,15 @@ for userFileI = 1:length(fileName)
     % Use regular expressions to extract UserID and day
     userMatch = regexp(fileName{userFileI}, userIDPattern, 'tokens');
     dayMatch = regexp(fileName{userFileI}, dayPattern, 'tokens');
-    % Store the path
-    files = files + ';' + fileName{userFileI};
 
     % Extracted UserID and day
     userID = userMatch{1}{1};
     day = dayMatch{1}{1};
 
     % You can jump users based on ID
-    if str2double(userID) > 900
-      continue
-    end
+    % if str2double(userID) ~= 27
+    % continue
+    % end
 
     % You can also jump users that have been already included. 
     % If only one session has been included, you should force the remainder
@@ -192,6 +190,9 @@ for userFileI = 1:length(fileName)
         n_files = 0;
         thisUserCalibration = ['None;'];
     end
+
+    % Store the path
+    files = files + ';' + fileName{userFileI};
 
     % If session was forced before (i.e., because a rpeviously loaded
     % datafile already contained info for the 1st session), then disregard
@@ -565,7 +566,7 @@ for userFileI = 1:length(fileName)
     % This is head orientation (Quaternion)
     % Note that we had the opposite handness (-w) and forward (-x) and
     % right (-z) vectors go the other way.
-    headOriQ = [-dataRaw.headpose_rotation_w -dataRaw.headpose_rotation_z -dataRaw.headpose_rotation_x dataRaw.headpose_rotation_y]; 
+    headOriQ = [dataRaw.headpose_rotation_w -dataRaw.headpose_rotation_z -dataRaw.headpose_rotation_x dataRaw.headpose_rotation_y]; 
     % This is head position (3D vector). Same as before applies.
     headPos = [-dataRaw.headpose_position_z -dataRaw.headpose_position_x dataRaw.headpose_position_y];
     % This is trial the user is conducting, for now we assume only Trial 1
@@ -655,11 +656,39 @@ for userFileI = 1:length(fileName)
     timestamp_accum = timestamp_accum + dataRaw.TimeMicroSec(end) ./ 1000000;
 
     % Finally update "previous" user info for next iteration
-    x = dataRaw.UseEyeTrackedDistortion(1);
     try
-        prevETDDC = dataRaw.UseEyeTrackedDistortion(1) == 1;
-    catch exception
-        prevETDDC = isequal(dataRaw.UseEyeTrackedDistortion{1}, 1);
+        if sum(dataRaw.UseEyeTrackedDistortion == 1) > sum(dataRaw.UseEyeTrackedDistortion == 0)
+            prevETDDC = 1;
+        else
+            prevETDDC = 0;
+        end
+    catch
+        % Initialize variables to count occurrences of 0s and 1s
+        count_zeros = 0;
+        count_ones = 0;
+        
+        % Iterate over each cell in the cell array
+        for i = 1:numel(dataRaw.UseEyeTrackedDistortion)
+            % Check if the cell contains a scalar or a vector
+            cell_content = dataRaw.UseEyeTrackedDistortion{i};
+            
+            % If the content is a scalar, increment the corresponding count
+            if isscalar(cell_content)
+                if cell_content == 0
+                    count_zeros = count_zeros + 1;
+                elseif cell_content == 1
+                    count_ones = count_ones + 1;
+                else
+                    error('Invalid value in the cell array.'); % Handle invalid values
+                end
+            % If the content is a vector, increment counts based on its elements
+            elseif isvector(cell_content)
+                count_zeros = count_zeros + sum(cell_content == 0);
+                count_ones = count_ones + sum(cell_content == 1);
+            else
+                error('Invalid content in the cell array.'); % Handle invalid content
+            end
+        end
     end
     prevUserID = userID;
     prevDay = day;
@@ -694,7 +723,7 @@ for i = 1:height(all_user_info)
 end
 
 % Save this user file
-save(['data\pre_processed\study2\S2-prep-data.mat'], 'all_user_info', '-v7.3')
+save(['data\pre_processed\study2\P027-fixed-S2-prep-data.mat'], 'all_user_info', '-v7.3')
 
 toc;                    % Just for performance measurements.
 % disp('Data pre-processed properly');
