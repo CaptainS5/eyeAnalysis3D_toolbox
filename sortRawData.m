@@ -108,6 +108,7 @@ for userFileI = 1:length(fileName)
     % Get user and session data
     % Use regular expressions to extract UserID and day
     userMatch = regexp(fileName{userFileI}, userIDPattern, 'tokens');
+    if isempty(userMatch)
         continue
     end
     dayMatch = regexp(fileName{userFileI}, dayPattern, 'tokens');
@@ -729,7 +730,6 @@ end
 save(['data\pre_processed\study2\P027-fixed-S2-prep-data.mat'], 'all_user_info', '-v7.3')
 
 toc;                    % Just for performance measurements.
-% disp('Data pre-processed properly');
 disp('Data pre-processed properly');
 
 % processAllData;         % Run data processing after this (if required)
