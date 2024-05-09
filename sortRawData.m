@@ -108,6 +108,8 @@ for userFileI = 1:length(fileName)
     % Get user and session data
     % Use regular expressions to extract UserID and day
     userMatch = regexp(fileName{userFileI}, userIDPattern, 'tokens');
+        continue
+    end
     dayMatch = regexp(fileName{userFileI}, dayPattern, 'tokens');
 
     % Extracted UserID and day
@@ -299,10 +301,12 @@ for userFileI = 1:length(fileName)
 
         % Adjust options of readtable for this type of files.
         opts = delimitedTextImportOptions('Delimiter', ';');
-        varNames = readtable([fileName{userFileI}], opts);
+%         varNames = readtable([fileName{userFileI}], opts);
+        varNames = readtable('EyeTrackerLog_00001122_334455.txt', opts);
         varNames = varNames{1, :};
         dataRaw = readtable([fileName{userFileI}], 'Delimiter', ';'); 
         dataRaw.Properties.VariableNames = varNames;
+        dataRaw.UseEyeTrackedDistortion = strcmp(dataRaw.UseEyeTrackedDistortion, 'TRUE');
 
         % List of columns to convert to numeric - These last 7 fields were
         % empty at the beginning, so they are not properly casted to the
@@ -561,16 +565,15 @@ for userFileI = 1:length(fileName)
 
 
     %% UNIFY COORDINATE SYSTEMS AND DO REQUIRED TRANSFORMATIONS FOR HEAD INFO
-    % Head data is currently in Unity space, we need to change it to MATLAB
-    % space, following transformations as stated above.
+    % Head data is currently in a right-handed system with x+=right, y+=up, z+=backward
     % This is head orientation (Quaternion)
-    % Note that we had the opposite handness (-w) and forward (-x) and
-    % right (-z) vectors go the other way.
     headOriQ = [dataRaw.headpose_rotation_w -dataRaw.headpose_rotation_z -dataRaw.headpose_rotation_x dataRaw.headpose_rotation_y]; 
     % This is head position (3D vector). Same as before applies.
     headPos = [-dataRaw.headpose_position_z -dataRaw.headpose_position_x dataRaw.headpose_position_y];
     % This is trial the user is conducting, for now we assume only Trial 1
     trial = ones(size(timestamp))*1;
+    % Now we change the head coordinate system into Matlab plot3 default, 
+    % x+ forward, y+left, z+up 
     
     % Store headFrame data.
     headFrameData = array2table([headOriQ headPos timestamp], 'VariableNames', ...
@@ -727,6 +730,8 @@ save(['data\pre_processed\study2\P027-fixed-S2-prep-data.mat'], 'all_user_info',
 
 toc;                    % Just for performance measurements.
 % disp('Data pre-processed properly');
+disp('Data pre-processed properly');
+
 % processAllData;         % Run data processing after this (if required)
 
 %%
