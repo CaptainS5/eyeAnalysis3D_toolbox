@@ -1,7 +1,7 @@
 function updatePlots(plotMode, eyeTrial, axSub, fig)
 set(0, 'CurrentFigure', fig)
 time = eyeTrial.eyeTrace.timestamp-min(eyeTrial.eyeTrace.timestamp);
-xRange = [333, 334]; %[time(1) time(end)]; %
+xRange = [time(1) time(end)]; %[333, 334]; %
 yRange = [-200 200]; % [-100 100];%
 
 if plotMode==0 % final result plots with saccades

@@ -11,9 +11,9 @@ loadEyeTrial = 0; % if to re-process the eye trial data (0), or just to load (1)
 currentTrial = 1; % starting from which trial to view the analysis plots
 % currentSub = '111'; % string of the client ID for the current subject to view; related to how you organize and load data in the next section
 
-% auto-capture how many files (one per trial) in the folder
-fileT = dir([dataPath, 'data*.mat']);
-trialAll = size(fileT, 1);
+% % auto-capture how many files (one per trial) in the folder
+% fileT = dir([dataPath, 'data*.mat']);
+% trialAll = size(fileT, 1);
 
 %% Load data
 % depending on your specific way of organizing data, you may need to
@@ -21,7 +21,8 @@ trialAll = size(fileT, 1);
 
 % here we assume that the raw data has already be sorted into tables in matlab
 % see more details in sortRawData.m for the outcome of the data tables
-load([dataPath, 'data', num2str(currentTrial), '.mat']) 
+% load([dataPath, 'data', num2str(currentTrial), '.mat']) 
+load([dataPath, 'example.mat'])
 
 %% open a figure as the visualization GUI
 % set size depending on your current screen size
