@@ -1,37 +1,12 @@
-function [VOR classID] = findVOR(eyeVelXY, headVelXY, headVel3D, vorThres, gazeFix, classID, timeStamp, sampleRate)
-% identify strictly VOR sections within fixation and update classification
-
-% calculate VOR gain during the process
-% this gain takes into account both direction and speed
-% VOR.gain = -dot(eyeVelXY, headVelXY, 2)./vecnorm(headVelXY, 2, 2).^2;
-% perfect compensation would be 1, same velocity but opposite directions
-% would be -1; basically ratio of magnitude plus how opposite the
-% directions are [cos(theta)]--no this doesn't work...
-
-VOR.gainAmp = vecnorm(eyeVelXY, 2, 2)./vecnorm(headVelXY, 2, 2); %sqrt(sum(eyeVelXY.^2, 2))./sqrt(sum(headVelXY.^2, 2));
-VOR.gainDir = -dot(eyeVelXY, headVelXY, 2)./vecnorm(eyeVelXY, 2, 2)./vecnorm(headVelXY, 2, 2);
-VOR.thresGain = vorThres.gain;
+function [VOR classID] = findVOR(headVel, vorThres, gazeFix, classID, timeStamp, sampleRate)
+% identify VOR sections with a simple threshold of head velocity within fixation and update classification
 VOR.thresHeadVel = vorThres.head;
-% 1 means perfectly opposite, -1 means in the same direction
 
-%% 1. depending on vorThres, if VOR gain is within this range, we consider it
-% use gainDir as it is more robust compared to amplitude
-% similarly, let's first find peaks within each fixation duration
-headVel2D = sqrt(sum(headVelXY.^2, 2));
 onsetI = [];
 offsetI = [];
 jj = 1; % index for VOR
 for ii = 1:size(gazeFix.onsetI, 1)
-    idxT = gazeFix.onsetI(ii):gazeFix.offsetI(ii); % the current fixation duration
-    gainT = VOR.gainDir(idxT);
-    
-    if sampleRate>= 800
-        VOR.thresGain = 0.91;
-        boolVec = (gainT>=0.91);% strict criteria for Rochester dataset
-    else
-        % use a combined... loose criteria here, meeting either...
-        boolVec = (gainT>=vorThres.gain | headVel2D(idxT)>=vorThres.head);
-    end
+    boolVec = headVel(idxT)>=vorThres.head);
 
     % set a minimum duration for valid VOR
     minFrames = ms2frame(20, sampleRate);

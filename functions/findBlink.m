@@ -3,7 +3,6 @@ function [blink classID] = findBlink(eyeTrace, sampleRate, dataType, initialThre
 % saccades
 % should be two consecutive peaks in opposite directions
 classID = NaN(size(eyeTrace.velOriWorldFiltX)); % initialize
-blink.maxDur = 0.6; % to account for data losses due to other issues
 
 % "a blink is associated with the eyes moving primarily downwards and
 % towards the nose (first component) followed by a return towards the
@@ -14,7 +13,7 @@ vel = eyeTrace.velOriHeadFilt2D; % use retinal gaze change to identify "suspects
 
 % video-based eye tracking, blinks as no signal in data
 % blinkIdx = isnan(eyeTrace.velOriWorldFilt2D);
-blinkIdx = (eyeTrace.blinkFlag ~= 0 | isnan(eyeTrace.velOriHeadFiltX));
+blinkIdx = (eyeTrace.blinkFlag > 0 | (isnan(eyeTrace.velOriHeadFiltX) & eyeTrace.blinkFlag>=0));
 
 % on and offsets of the missing signal frames
 iDiff = diff(blinkIdx);
@@ -73,11 +72,7 @@ if ~isempty(blink.onsetI)
     blink.offsetTime = eyeTrace.timestamp(blink.offsetI); % actual time stamp of offset
 
     for ii = 1:length(blink.onsetI)
-        if blink.offsetTime(ii)-blink.onsetTime(ii) <= blink.maxDur
-            classID(blink.onsetI(ii):blink.offsetI(ii)) = 0;
-        else
-            classID(blink.onsetI(ii):blink.offsetI(ii)) = 0.5;
-        end
+        classID(blink.onsetI(ii):blink.offsetI(ii)) = 0;
     end
 else
     blink.onsetTime = []; % actual time stamp of onset

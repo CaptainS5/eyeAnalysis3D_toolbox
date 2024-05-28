@@ -49,68 +49,7 @@ sacThres = thres;
 baseVel = nanmean(restV); %+3*nanstd(restV);
 
 baseAcc = 1000; % lower than this is likely pursuit, fairly conservative now. see Dash and Thier, 2013
-% else
-%% adaptive threshold based on local noise level--also not stable in crystal's data...
-%     % find fixation period: define a time window, then make the window with the
-%     % smallest variance + mean as the fixation period
-%     wL = ms2frame(100, sampleRate); % 100 ms in frames
-%     % calculating the sliding mean & std of vel
-%     velM = movmean(vel, wL);
-%     velStd = movstd(vel, wL);
-%     minI = find(velM==nanmin(velM));
-%
-%     % find the highest vel, then the difference between highest and mean during
-%     % this minimum period, use min mean + 0.1 diff as the threshold
-%     maxV = nanmax(vel);
-%     % minV = nanmean(velM(minI(1)));
-%     %
-%     if sampleRate>1000
-%         baseVel = velM(minI(1));
-%         sacThres = velM(minI(1)) + 6 * velStd(minI(1));
-%     else
-%         baseVel = velM(minI(1))+3*velStd(minI(1));
-%         sacThres = baseVel + 0.05*maxV;
-%         % sacThres = baseVel + 0.05*(maxV-baseVel);
-%     end
-%
-%     % if baseVel>50
-%     %     baseVel=50;
-%     % end
-%     % sacThres = baseVel; %*4;
-%     if sacThres < 20
-%         sacThres = 20;
-%     elseif sacThres>150
-%         sacThres = 150;
-%     end
-%
-%     baseAcc = 1000;
-% end
-% % accM = movmean(acc, wL*2, 'omitnan');
-% % accStd = movstd(acc, wL*2, 'omitnan');
-% % baseAcc = accM(minI(1))+6*accStd(minI(1));
-% % if baseAcc < 3000
-% %     baseAcc = 3000;
-% % end
-% % if baseAcc<3000
-% %     baseAcc = 3000;
-% % elseif baseAcc>6000
-% %     baseAcc=6000;
-% % end
 
-%% or just manually set fixed thresholds...
-% % could differ across participants, again depends on what works best for
-% % your data; there are many different ways for saccade detection as well,
-% % feel free to adjust/fine tune based on your needs
-% baseVel = 30;
-% % for finding saccade onsets & offsets, where the regression line of the
-% % saccade velocity slopes should intersect
-%
-% sacThres = initialThres;
-% % threshold used for finding velocity peaks that are potentially saccades
-%
-% baseAcc = 3000; % also for finding saccade onsets & offsets, to idenfity the
-% "reliable" downpeak of acceleration for a saccade
-%
 %% output to keep a record
 saccade.baseVel = baseVel;
 saccade.sacThres = sacThres;
