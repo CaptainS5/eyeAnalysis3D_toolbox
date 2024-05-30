@@ -1,4 +1,4 @@
-% getting some general stats of the eye data recording
+         % getting some general stats of the eye data recording
 close all; clear all; warning off; %clc
 addpath(genpath('functions'))
 

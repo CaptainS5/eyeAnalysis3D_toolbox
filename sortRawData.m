@@ -15,6 +15,8 @@ datapath = 'G:\.shortcut-targets-by-id\1-tQ5Ewvk-g5Dp2KbJCxnyPx0Wwud3kOZ\ETDDC U
 % Create a directory to save results
 %[status, msg, msgID] = mkdir([datapath, '..\pre_processed']);
 
+% list of valid users
+userAll = [1, 2, 8, 14, 15, 16, 20, 21, 22, 26, 27, 28, 30, 32, 33, 35, 36, 38, 40, 43, 44, 45, 48, 49, 50, 51, 52, 54, 56, 57, 58, 59, 60, 61];
 
 % Get list of files. For now, it works writting all of them manually,
 % and assumes one user.
@@ -134,17 +136,10 @@ for userFileI = 1:length(fileName)
     end
     fileInfo.count = fileCount;
 
-    prevUserID = userID;
-    prevDay = day;
-
     % selectively process files
-%     if ~(str2double(userID) == 44 && current_session==1 && fileInfo.count==2) && ...
-%             ~(str2double(userID) == 59 && current_session==2 && fileInfo.count==7)
-% % %           if  ~(str2double(userID) == 61 && current_session==2 && fileInfo.count==8)
-% % %     if ~(str2double(userID) == 30 && current_session==2 && fileInfo.count==6) && ...
-% % %             ~(str2double(userID) == 31 && current_session==1 && fileInfo.count==6)
-%         continue
-%     end
+    if isempty(find(userAll==str2num(userID), 1))
+        continue
+    end
 
     % Display the current user, for visualization purposes
     fprintf(['UserID ', userID, ', session ', num2str(current_session), ', file ', num2str(fileCount), '\n']);
@@ -302,41 +297,49 @@ for userFileI = 1:length(fileName)
             removedStats.calibType = 1;
         end
 
-%         % for 44, 59
-%                 rI = [];
-%                 durS = [];
-%                 for ii = 1:length(calibration_result_indices)
-%                     if ii==1
-%                         rI = 1:calibration_result_indices(ii);
-%                         durS = (dataRaw.TimeMicroSec(calibration_result_indices(ii))-dataRaw.TimeMicroSec(1))/1000000;
-%                     else
-%                         rI = [rI calibration_started_indices(ii):calibration_result_indices(ii)];
-%                         durS = durS + ...
-%                             (dataRaw.TimeMicroSec(calibration_result_indices(ii))-dataRaw.TimeMicroSec(calibration_started_indices(ii)))/1000000;
-%                     end
-%                 end
-% % for 61
-% %         rI = calibration_started_indices(1):calibration_result_indices(1);
-% %         durS = ...
-% %             (dataRaw.TimeMicroSec(calibration_result_indices(1))-dataRaw.TimeMicroSec(calibration_started_indices(1)))/1000000;
-% 
-%         removedStats.calibRowN = length(rI);
-%         removedStats.calibDur_sec = durS;
-%         dataRaw(rI, :) = [];
-%         removedStats.calibType = 3;
+        if (str2double(userID) == 44 && current_session==1 && fileInfo.count==2) || ...
+                (str2double(userID) == 59 && current_session==2 && fileInfo.count==7)
+            % for 44, 59
+            rI = [];
+            durS = [];
+            for ii = 1:length(calibration_result_indices)
+                if ii==1
+                    rI = 1:calibration_result_indices(ii);
+                    durS = (dataRaw.TimeMicroSec(calibration_result_indices(ii))-dataRaw.TimeMicroSec(1))/1000000;
+                else
+                    rI = [rI calibration_started_indices(ii):calibration_result_indices(ii)];
+                    durS = durS + ...
+                        (dataRaw.TimeMicroSec(calibration_result_indices(ii))-dataRaw.TimeMicroSec(calibration_started_indices(ii)))/1000000;
+                end
+            end
+            removedStats.calibRowN = length(rI);
+            removedStats.calibDur_sec = durS;
+            dataRaw(rI, :) = [];
+            removedStats.calibType = 3;
+        elseif str2double(userID) == 61 && current_session==2 && fileInfo.count==8
+            % for 61
+            rI = calibration_started_indices(1):calibration_result_indices(1);
+            durS = ...
+                (dataRaw.TimeMicroSec(calibration_result_indices(1))-dataRaw.TimeMicroSec(calibration_started_indices(1)))/1000000;
 
-%         % for 30 
-%         removedStats.calibRowN = length(dataRaw.TimeMicroSec)-calibration_started_indices(1)+1;
-%         removedStats.calibDur_sec = (dataRaw.TimeMicroSec(end)-dataRaw.TimeMicroSec(calibration_started_indices(1)))/1000000;
-%         dataRaw(calibration_started_indices(1):end, :) = [];
-%         removedStats.calibType = 2;
-        
-        % original remove calibration... remove whatever is before the last one
-        removedStats.calibRowN = calibration_result_indices(end);
-        removedStats.calibDur_sec = (dataRaw.TimeMicroSec(calibration_result_indices(end))-dataRaw.TimeMicroSec(1))/1000000;
+            removedStats.calibRowN = length(rI);
+            removedStats.calibDur_sec = durS;
+            dataRaw(rI, :) = [];
+            removedStats.calibType = 3;
+        elseif str2double(userID) == 30 && current_session==2 && fileInfo.count==6
+            % for 30
+            removedStats.calibRowN = length(dataRaw.TimeMicroSec)-calibration_started_indices(1)+1;
+            removedStats.calibDur_sec = (dataRaw.TimeMicroSec(end)-dataRaw.TimeMicroSec(calibration_started_indices(1)))/1000000;
+            dataRaw(calibration_started_indices(1):end, :) = [];
+            removedStats.calibType = 2;
+        else
+            % original remove calibration... remove whatever is before the last one
+            removedStats.calibRowN = calibration_result_indices(end);
+            removedStats.calibDur_sec = (dataRaw.TimeMicroSec(calibration_result_indices(end))-dataRaw.TimeMicroSec(1))/1000000;
 
-        % Some calibration was ended but start is not correctly indicated (?)
-        dataRaw(1:calibration_result_indices(end), :) = [];
+            % Some calibration was ended but start is not correctly indicated (?)
+            dataRaw(1:calibration_result_indices(end), :) = [];
+        end
         %         fprintf('Some calibration was started before. Removed %d rows.\n', calibration_result_indices);
 %     elseif isempty(calibration_result_indices) && ~isempty(calibration_started_indices)
 %         calibInfo.resultTimestamp = [];
@@ -478,51 +481,7 @@ for userFileI = 1:length(fileName)
 
     
     %% REMOVE INVALID TOBII DATA
-    % Check also (0,0,0) in gaze_direction_combined_normalized_xyz from the 
-    % Tobii raw data, mark all Tobii eye in head data as NaN if that's the
-    % case. This is because they are "invalid" (although not broken) rows
-    % and should not be included in the analyses.
-    
-    % Find all rows where 'ColumnX' is 0 and remove values
-    rowsWithZeros = find(dataRaw.gaze_origin_combined_mm_xyz_x == 0 ...
-        & dataRaw.gaze_origin_combined_mm_xyz_y == 0 ...
-        & dataRaw.gaze_origin_combined_mm_xyz_z == 0); 
-    
-    % We are remvoing numerical values BUT NOT CHANGING logicals (as
-    % before)
-    partial_dataRaw = [dataRaw(rowsWithZeros, 1:4), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(5:7)), ...
-        dataRaw(rowsWithZeros, 8), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(9:11)) ...
-        dataRaw(rowsWithZeros, 12), ...
-        array2table(repmat([NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(13)) ...
-        dataRaw(rowsWithZeros, 14), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(15:17)) ...
-        dataRaw(rowsWithZeros, 18), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(19:21)) ...
-        dataRaw(rowsWithZeros, 22), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(23:25)) ...
-        dataRaw(rowsWithZeros, 26), ...
-        array2table(repmat([NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(27)) ...
-        dataRaw(rowsWithZeros, 28:30), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(31:33)) ...
-        dataRaw(rowsWithZeros, 34), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(35:37)) ...
-        dataRaw(rowsWithZeros, 38), ...
-        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(39:41)) ...
-        dataRaw(rowsWithZeros, 42), ...
-        array2table(repmat([NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(43)) ...
-        dataRaw(rowsWithZeros, 44:45), ...
-        array2table(repmat([NaN, NaN, NaN, NaN, NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(46:end))];  
-    % Change all at once
-    dataRaw(rowsWithZeros, :) = partial_dataRaw;
-    % Debug how many wrong Tobii rows were removed
-    fprintf('Fixed %d rows with (0,0,0)\n', size(rowsWithZeros, 1));
-    debug_removed_rows = debug_removed_rows + size(rowsWithZeros, 1);
-    removedStats.eyeZerosIdx = rowsWithZeros;
-    removedStats.eyeZerosRawTime = dataRaw.TimeMicroSec(rowsWithZeros);
-    
-    % We have also discovered that some lines have negative depths coming
+    % We have discovered that some lines have negative depths coming
     % from Tobii, which is surely weird. We should not take those lines
     % into account, we don't know if the rest of the info is correct...
     %
@@ -535,7 +494,10 @@ for userFileI = 1:length(fileName)
     % i.e., using logical operators
 
     % Find all rows where 'gazeDepth' is negative or 0
-    rowsWithNegDepth = find(dataRaw.convergence_distance_mm <= 0 );
+    rowsWithNegDepth = find(dataRaw.convergence_distance_mm <= 0 & ...
+        ~(dataRaw.gaze_origin_combined_mm_xyz_x == 0 ...
+        & dataRaw.gaze_origin_combined_mm_xyz_y == 0 ...
+        & dataRaw.gaze_origin_combined_mm_xyz_z == 0));
     % We are remvoing numerical values BUT NOT CHANGING logicals (as
     % before)
     partial_dataRaw = [dataRaw(rowsWithNegDepth, 1:4), ...
@@ -567,10 +529,52 @@ for userFileI = 1:length(fileName)
     removedStats.invalidDepthIdx = rowsWithNegDepth;
     removedStats.invalidDepthRawTime = dataRaw.TimeMicroSec(rowsWithNegDepth);
     % Debug how many wrong Tobii rows were removed
-    fprintf('Fixed %d rows with funky gaze depths\n\n', size(rowsWithNegDepth, 1));
+    fprintf('Fixed %d rows with funky gaze depths\n', size(rowsWithNegDepth, 1));
     debug_removed_rows = debug_removed_rows + size(rowsWithNegDepth, 1);
     debug_total_rows = debug_total_rows + size(dataRaw, 1);
 
+    % Check also (0,0,0) in gaze_direction_combined_normalized_xyz from the 
+    % Tobii raw data, mark all Tobii eye in head data as NaN if that's the
+    % case. This is because they are "invalid" (although not broken) rows
+    % and should not be included in the analyses.
+    % Find all rows where 'ColumnX' is 0 and remove values
+    rowsWithZeros = find(dataRaw.gaze_origin_combined_mm_xyz_x == 0 ...
+        & dataRaw.gaze_origin_combined_mm_xyz_y == 0 ...
+        & dataRaw.gaze_origin_combined_mm_xyz_z == 0);
+
+    % We are remvoing numerical values BUT NOT CHANGING logicals (as
+    % before)
+    partial_dataRaw = [dataRaw(rowsWithZeros, 1:4), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(5:7)), ...
+        dataRaw(rowsWithZeros, 8), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(9:11)) ...
+        dataRaw(rowsWithZeros, 12), ...
+        array2table(repmat([NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(13)) ...
+        dataRaw(rowsWithZeros, 14), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(15:17)) ...
+        dataRaw(rowsWithZeros, 18), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(19:21)) ...
+        dataRaw(rowsWithZeros, 22), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(23:25)) ...
+        dataRaw(rowsWithZeros, 26), ...
+        array2table(repmat([NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(27)) ...
+        dataRaw(rowsWithZeros, 28:30), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(31:33)) ...
+        dataRaw(rowsWithZeros, 34), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(35:37)) ...
+        dataRaw(rowsWithZeros, 38), ...
+        array2table(repmat([NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(39:41)) ...
+        dataRaw(rowsWithZeros, 42), ...
+        array2table(repmat([NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(43)) ...
+        dataRaw(rowsWithZeros, 44:45), ...
+        array2table(repmat([NaN, NaN, NaN, NaN, NaN, NaN, NaN], size(rowsWithZeros, 1), 1), 'VariableNames', dataRaw.Properties.VariableNames(46:end))];
+    % Change all at once
+    dataRaw(rowsWithZeros, :) = partial_dataRaw;
+    % Debug how many wrong Tobii rows were removed
+    fprintf('Fixed %d rows with (0,0,0)\n\n', size(rowsWithZeros, 1));
+    debug_removed_rows = debug_removed_rows + size(rowsWithZeros, 1);
+    removedStats.eyeZerosIdx = rowsWithZeros;
+    removedStats.eyeZerosRawTime = dataRaw.TimeMicroSec(rowsWithZeros);
 
     %% CHECKPOINT!
     % If you got here, then it means that dataRaw now contains all valid
@@ -679,7 +683,7 @@ end
 toc;                    % Just for performance measurements.
 disp('Data pre-processing done');
 
-% processAllData_perFile;
+processAllData_perFile;
 
 %%
 

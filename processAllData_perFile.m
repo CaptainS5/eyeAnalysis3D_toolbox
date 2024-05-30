@@ -66,17 +66,28 @@ for userI = 1:length(userAll)
         idxT = strfind(fileName, 'f');
         chunk = str2num(fileName(idxT+1));
 
+        % You can jump users based on ID, as always
+        if userID==1 && session==1
+            continue
+        end
+
         % Identify current user...
         fprintf('Analyzing session %d chunk %d for user %d\n',session, chunk, userID);
 
-        % You can jump users based on ID, as always
-        % if (str2double(all_user_info.UserID{i}) ~= 50)
-        %   continue
-        % end
-
-
         %% START ANALYZING TRIAL
         eyeTrial = sub_file_info.EyeTrial;
+
+        flag = 0;
+        first_non_nan_row = 1;
+        while isnan(eyeTrial.headAligned.posZ(first_non_nan_row))
+            first_non_nan_row = first_non_nan_row + 1;
+            flag = 1;
+        end
+
+        if flag==1
+            eyeTrial.headAligned(1:first_non_nan_row-1, :) = [];
+            eyeTrial.eyeAligned(1:first_non_nan_row-1, :) = [];
+        end
 
 %         % Try to find the first indices of two consecutive not NaN rows in the
 %         % first 10 elements (e.g., data is technically "clean")
@@ -118,7 +129,6 @@ for userI = 1:length(userAll)
 %         if ~isempty(first_non_nan_row) && first_non_nan_row > 1
 %             eyeTrial.headAligned(1:first_non_nan_row-1, :) = [];
 %         end
-% 
 % 
 %         if ~isempty(first_non_nan_row) && first_non_nan_row > 1
 %             eyeTrial.eyeAligned(1:first_non_nan_row-1, :) = [];

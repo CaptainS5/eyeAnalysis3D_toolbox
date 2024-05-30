@@ -3,6 +3,10 @@ function headTrace = filterHeadTrace(headData, sampleRate)
 % currently simply use a median filter, could use the debug code to see if
 % it works ok
 
+% Initialize the filter and preallocate outputs.
+% first_non_nan_row = find(~any(isnan(headData), 2), 1);
+% headData(1:first_non_nan_row-1, :) = [];
+
 if ismember('posX', headData.Properties.VariableNames)
     headPosRaw = [headData.posX headData.posY headData.posZ];
     % filter head position
@@ -29,10 +33,6 @@ low  = max(min(hbias - (hrange./2), 1), 0);
 high = max(min(hbias + (hrange./2), 1), 0);
 hrangeLimited = high - low;
 
-% Initialize the filter and preallocate outputs.
-first_non_nan_row = find(~any(isnan(headOri), 2), 1);
-headOri(1:first_non_nan_row-1, :) = [];
-headData(1:first_non_nan_row-1, :) = [];
 headOriQ = quaternion(headOri);
 y = headOriQ(1); % initial filter state
 qout = zeros(size(y), 'like', y); % preallocate filter output
