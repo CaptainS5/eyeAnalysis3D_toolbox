@@ -87,11 +87,6 @@ for userFileI = 1:length(fileName)
         current_session = 1;
     end
 
-    % You can jump users based on ID
-    % if str2double(userID) ~= 27
-    % continue
-    % end
-
     % You can also jump users that have been already included. 
     % If only one session has been included, you should force the remainder
     % to be the second session.
@@ -117,8 +112,6 @@ for userFileI = 1:length(fileName)
     % everything again, and reset for this new user.
 
     % Reset variables 
-    sub_file_info = table('Size', [0, length(columnNames)], 'VariableNames', columnNames,  'VariableTypes', variableTypes);
-   
     fileInfo = [];
     % Store the path
     idxT = strfind(fileName{userFileI}, '\');
@@ -140,7 +133,19 @@ for userFileI = 1:length(fileName)
         fileCount = 1;
     end
     fileInfo.count = fileCount;
-    
+
+    prevUserID = userID;
+    prevDay = day;
+
+    % selectively process files
+%     if ~(str2double(userID) == 44 && current_session==1 && fileInfo.count==2) && ...
+%             ~(str2double(userID) == 59 && current_session==2 && fileInfo.count==7)
+% % %           if  ~(str2double(userID) == 61 && current_session==2 && fileInfo.count==8)
+% % %     if ~(str2double(userID) == 30 && current_session==2 && fileInfo.count==6) && ...
+% % %             ~(str2double(userID) == 31 && current_session==1 && fileInfo.count==6)
+%         continue
+%     end
+
     % Display the current user, for visualization purposes
     fprintf(['UserID ', userID, ', session ', num2str(current_session), ', file ', num2str(fileCount), '\n']);
 
@@ -295,23 +300,54 @@ for userFileI = 1:length(fileName)
         else
             calibInfo.startTimestamp = dataRaw.TimeMicroSec(calibration_started_indices);
             removedStats.calibType = 1;
-        end        
+        end
+
+%         % for 44, 59
+%                 rI = [];
+%                 durS = [];
+%                 for ii = 1:length(calibration_result_indices)
+%                     if ii==1
+%                         rI = 1:calibration_result_indices(ii);
+%                         durS = (dataRaw.TimeMicroSec(calibration_result_indices(ii))-dataRaw.TimeMicroSec(1))/1000000;
+%                     else
+%                         rI = [rI calibration_started_indices(ii):calibration_result_indices(ii)];
+%                         durS = durS + ...
+%                             (dataRaw.TimeMicroSec(calibration_result_indices(ii))-dataRaw.TimeMicroSec(calibration_started_indices(ii)))/1000000;
+%                     end
+%                 end
+% % for 61
+% %         rI = calibration_started_indices(1):calibration_result_indices(1);
+% %         durS = ...
+% %             (dataRaw.TimeMicroSec(calibration_result_indices(1))-dataRaw.TimeMicroSec(calibration_started_indices(1)))/1000000;
+% 
+%         removedStats.calibRowN = length(rI);
+%         removedStats.calibDur_sec = durS;
+%         dataRaw(rI, :) = [];
+%         removedStats.calibType = 3;
+
+%         % for 30 
+%         removedStats.calibRowN = length(dataRaw.TimeMicroSec)-calibration_started_indices(1)+1;
+%         removedStats.calibDur_sec = (dataRaw.TimeMicroSec(end)-dataRaw.TimeMicroSec(calibration_started_indices(1)))/1000000;
+%         dataRaw(calibration_started_indices(1):end, :) = [];
+%         removedStats.calibType = 2;
+        
+        % original remove calibration... remove whatever is before the last one
         removedStats.calibRowN = calibration_result_indices(end);
         removedStats.calibDur_sec = (dataRaw.TimeMicroSec(calibration_result_indices(end))-dataRaw.TimeMicroSec(1))/1000000;
 
         % Some calibration was ended but start is not correctly indicated (?)
         dataRaw(1:calibration_result_indices(end), :) = [];
         %         fprintf('Some calibration was started before. Removed %d rows.\n', calibration_result_indices);
-    elseif isempty(calibration_result_indices) && ~isempty(calibration_started_indices)
-        calibInfo.resultTimestamp = [];
-        calibInfo.startTimestamp = dataRaw.TimeMicroSec(calibration_started_indices);
-
-        removedStats.calibRowN = size(dataRaw, 2) - calibration_started_indices(end);
-        removedStats.calibDur_sec = (dataRaw.TimeMicroSec(end)-dataRaw.TimeMicroSec(calibration_started_indices(end)))/1000000;
-        removedStats.calibType = -1;
-        % Some calibration was started but end is not correctly indicated (?)
-        dataRaw(calibration_started_indices(end):end, :) = [];
-        fprintf(userID, '_', num2str(current_session), '_some calibration was ended later. Removed %d rows.\n', size(dataRaw, 2) - calibration_started_indices);
+%     elseif isempty(calibration_result_indices) && ~isempty(calibration_started_indices)
+%         calibInfo.resultTimestamp = [];
+%         calibInfo.startTimestamp = dataRaw.TimeMicroSec(calibration_started_indices);
+% 
+%         removedStats.calibRowN = size(dataRaw, 2) - calibration_started_indices(end);
+%         removedStats.calibDur_sec = (dataRaw.TimeMicroSec(end)-dataRaw.TimeMicroSec(calibration_started_indices(end)))/1000000;
+%         removedStats.calibType = -1;
+%         % Some calibration was started but end is not correctly indicated (?)
+%         dataRaw(calibration_started_indices(end):end, :) = [];
+%         fprintf(userID, '_', num2str(current_session), '_some calibration was ended later. Removed %d rows.\n', size(dataRaw, 2) - calibration_started_indices);
         
 %     elseif ~isempty(calibration_result_indices) && ~isempty(calibration_started_indices)
 %         removedStats.calibRowN = [];
@@ -380,14 +416,14 @@ for userFileI = 1:length(fileName)
     try      
         % Remove other lines with no info
         idx = find(cellfun(@isempty, dataRaw.headpose_position_x));
-        removeStats.headEmptyTimestamp = dataRaw.TimeMicroSec(idx);
+        removedStats.headEmptyTimestamp = dataRaw.TimeMicroSec(idx);
 %         removedStats.headEmptyRowN = length(idx);
 %         removedStats.headEmptyDur_sec = (dataRaw.TimeMicroSec(idx(end))-dataRaw.TimeMicroSec(idx(1)))/1000000;
         dataRaw(idx, :) = [];
     catch exception
         % Remove other lines with no info
         idx = find(cellfun('isempty', num2cell(dataRaw.headpose_position_x)));
-        removeStats.headEmptyTimestamp = dataRaw.TimeMicroSec(idx);
+        removedStats.headEmptyTimestamp = dataRaw.TimeMicroSec(idx);
 %         removedStats.headEmptyRowN = length(idx);
 %         removedStats.headEmptyDur_sec = (dataRaw.TimeMicroSec(idx(end))-dataRaw.TimeMicroSec(idx(1)))/1000000;
         dataRaw(idx, :) = [];
@@ -430,6 +466,10 @@ for userFileI = 1:length(fileName)
             if isnumeric(dataRaw{idx-1, tt})
                 dataRaw{idx-1, tt} = NaN;
                 dataRaw{idx, tt} = NaN;
+            end
+            if tt==13
+                dataRaw{idx-1, tt} = -1;
+                dataRaw{idx, tt} = -1;
             end
         end
     end
@@ -629,8 +669,8 @@ for userFileI = 1:length(fileName)
     end
 
     % Store current file
-    sub_file_info = {userID, current_session, ETDDC, day, ...
-        fileInfo, calibInfo, removedStats, eyeTrial};
+    sub_file_info = cell2table({userID, current_session, ETDDC, day, ...
+        fileInfo, calibInfo, removedStats, eyeTrial}, 'VariableNames', columnNames);
     save(['C:\Users\xiuyunwu\Downloads\ETDDC\preprocessed data\prep_', userID, '_s', num2str(current_session), '_f', num2str(fileInfo.count), '.mat'], 'sub_file_info', '-v7.3')
 
     prevUserID = userID;
@@ -639,9 +679,7 @@ end
 toc;                    % Just for performance measurements.
 disp('Data pre-processing done');
 
-processAllData_perFile;
-
-% processAllData;         % Run data processing after this (if required)
+% processAllData_perFile;
 
 %%
 

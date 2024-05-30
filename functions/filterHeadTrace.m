@@ -89,74 +89,6 @@ end
 qout = quatnormalize(qout);
 rotQFilt = [compact(qout); NaN(1, 4)];
 
-
-%{
-xRange = [2120 2130];
-filtEulZYX = quat2eul([ rotQFilt(:, 1)  ...
-    rotQFilt(:, 2) ...
-    rotQFilt(:, 3)  ...
-    rotQFilt(:, 4)])/pi*180;
-
-rawEulZYX = quat2eul([ rotQRaw(:, 1)  ...
-    rotQRaw(:, 2) ...
-    rotQRaw(:, 3)  ...
-    rotQRaw(:, 4)])/pi*180;
-
-time = headData.timestamp;
-
-subplot(3, 1, 1)
-plot(time, filtEulZYX(:, 3))
-hold on;
-plot(time, rawEulZYX(:, 3))
-%     p1 = plot(time, eyeTrial.eyeTrace.velOriHeadFiltX(:, 1), '-');
-%     hold on
-%     line([min(xRange), max(xRange)], [0, 0], 'lineStyle', '--')
-%     p2 = plot(time, eyeTrial.headTrace.displaceX(:, 1), '-');
-%     legend([p1, p2], {'eye-in-head', 'head offset'}, 'box', 'off', 'location', 'best')
-xlabel('Time (s)')
-%     ylabel('Horizontal velocity (deg/s)')
-ylabel('Head roll velocity (deg/s)')
-xlim(xRange)
-%     ylim(yRange)
-hold off
-
-subplot(3, 1, 2)
-plot(time, filtEulZYX(:, 2))
-hold on;
-plot(time, rawEulZYX(:, 2))
-%     p1 = plot(time, eyeTrial.eyeTrace.velOriHeadFiltY(:, 1), '-');
-%     hold on
-%     line([min(xRange), max(xRange)], [0, 0], 'lineStyle', '--')
-%     p2 = plot(time, eyeTrial.headTrace.displaceY(:, 1), '-');
-%     legend([p1 p2], {'eye-in-head', 'head offset'}, 'box', 'off', 'location', 'best')
-xlabel('Time (s)')
-%     ylabel('Vertical velocity (deg/s)')
-ylabel('Head pitch velocity (deg/s)')
-xlim(xRange)
-%     ylim(yRange)
-hold off
-
-subplot(3, 1, 3)
-plot(time, filtEulZYX(:, 1))
-hold on;
-plot(time, rawEulZYX(:, 1))
-%     p1 = plot(time, eyeTrial.eyeTrace.velOriHeadFilt2D(:, 1), '-');
-%     hold on
-%     line([min(xRange), max(xRange)], [0, 0], 'lineStyle', '--')
-%     p2 = plot(time, eyeTrial.headTrace.displace2D(:, 1), '-');
-%     legend([p1 p2], {'eye-in-head', 'head offset'}, 'box', 'off', 'location', 'best')
-xlabel('Time (s)')
-ylabel('Head yaw velocity (deg/s)')
-%     ylabel('2D velocity (deg/s)')
-xlim(xRange)
-%     ylim(yRange)
-hold off;
-
-%}
-
-
-
-
 % get rotation direction and velocity
 rotAng = 2*acosd(rotQFilt(1:end-1, 1)); %2 * atan2d(norm(q12(ii, 2:4)),q12(ii, 1)); % in degrees
 vel = [rotAng.*(1./diff(headData.timestamp)); NaN]; % angle around the rotation axis
@@ -230,22 +162,4 @@ else
         'rotVel3D', 'rotAxisX', 'rotAxisY', 'rotAxisZ', 'rotVel3DFilt', 'timestamp'});
 end
 
-
-% if ismember('posX', headData.Properties.VariableNames)
-%     headTrace = array2table([headPosRaw headPosFilt headOri headOriFilt rotQRaw rotQFilt vel rotAxis velFilt], ...
-%         'VariableNames', {'posRawX', 'posRawY', 'posRawZ', ...
-%         'posFiltX', 'posFiltY', 'posFiltZ', ...
-%         'oriRawQw', 'oriRawQx', 'oriRawQy', 'oriRawQz', ...
-%         'oriFiltQw', 'oriFiltQx', 'oriFiltQy', 'oriFiltQz', ...
-%         'rotQw', 'rotQx', 'rotQy', 'rotQz', ...
-%         'rotFiltQw', 'rotFiltQx', 'rotFiltQy', 'rotFiltQz', ...
-%         'rotVel3D', 'rotAxisX', 'rotAxisY', 'rotAxisZ', 'rotVel3DFilt'});
-% else
-%     headTrace = array2table([headOri headOriFilt rotQRaw rotQFilt vel rotAxis velFilt], ...
-%         'VariableNames', {'oriRawQw', 'oriRawQx', 'oriRawQy', 'oriRawQz', ...
-%         'oriFiltQw', 'oriFiltQx', 'oriFiltQy', 'oriFiltQz', ...
-%         'rotQw', 'rotQx', 'rotQy', 'rotQz', ...
-%         'rotFiltQw', 'rotFiltQx', 'rotFiltQy', 'rotFiltQz', ...
-%         'rotVel3D', 'rotAxisX', 'rotAxisY', 'rotAxisZ', 'rotVel3DFilt'});
-% end
 end

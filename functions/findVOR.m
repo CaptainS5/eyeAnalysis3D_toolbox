@@ -6,7 +6,8 @@ onsetI = [];
 offsetI = [];
 jj = 1; % index for VOR
 for ii = 1:size(gazeFix.onsetI, 1)
-    boolVec = headVel(idxT)>=vorThres.head);
+    idxT = gazeFix.onsetI(ii):gazeFix.offsetI(ii);
+    boolVec = headVel(idxT)>=vorThres.head;
 
     % set a minimum duration for valid VOR
     minFrames = ms2frame(20, sampleRate);
