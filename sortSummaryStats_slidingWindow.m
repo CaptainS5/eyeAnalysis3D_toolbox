@@ -88,8 +88,8 @@ for wI = 1:length(windowLength)
 
         eyeHeadSub = table;
         disp(['processing window length ', num2str(windowLength(wI)), ...
-            's, gap ', num2str(windowGap(wI)), 's, user ', small_file_info.UserID{fileI}, ...
-            ', session ', num2str(small_file_info.Session(fileI)), ', ETDDC ', num2str(small_file_info.ETDDC(fileI))])
+            's, gap ', num2str(windowGap(wI)), 's, user ', small_file_info.UserID{1}, ...
+            ', session ', num2str(small_file_info.Session), ', ETDDC ', num2str(small_file_info.ETDDC)])
 
         for stepI = 1:length(wStartI)
             eyeHeadSub(stepI, :) = getWindowStats(small_file_info, wStartI(stepI), wEndI(stepI), stepI+(chunk-1)*length(wStartI));
@@ -183,11 +183,11 @@ else
     stats.blink_dur_median = NaN;
     stats.blink_dur_total_proportion = NaN;
 
-    stats.blink_within2S_total_num = NaN;
-    stats.blink_within2S_rate_per_sec = NaN;
-    stats.blink_within2S_dur_mean = NaN;
-    stats.blink_within2S_dur_median = NaN;
-    stats.blink_within2S_dur_total_proportion = NaN;
+%     stats.blink_within2S_total_num = NaN;
+%     stats.blink_within2S_rate_per_sec = NaN;
+%     stats.blink_within2S_dur_mean = NaN;
+%     stats.blink_within2S_dur_median = NaN;
+%     stats.blink_within2S_dur_total_proportion = NaN;
 end
 
 %% fixation
@@ -339,6 +339,11 @@ if ~skip
         stats.vor_verti_eyeInHeadVel_95prctile = NaN; %prctile(vorHeadVelVerti, 97.5)-prctile(vorHeadVelVerti, 2.5);
     end
 else
+    stats.vor_total_num = NaN;
+    stats.vor_dur_mean = NaN;
+    stats.vor_dur_median = NaN;
+    stats.vor_dur_total_proportion = NaN;
+
     stats.vor_headVel3D_median_magnitude = NaN;
     stats.vor_headVel3D_95prctile = NaN; %prctile(vorHeadVel2D, 97.5)-prctile(vorHeadVel2D, 2.5);
 
@@ -369,8 +374,8 @@ else
 end
 
 if ~skip && endI>=startI
-    ampInHead = dataAll.SaccadeInfo{1}.ampInHead(startI:endI);
-    peakVelInHead = dataAll.SaccadeInfo{1}.peakVelHead(startI:endI);
+    ampInHead = dataAll.SaccadeInfo.ampInHead(startI:endI);
+    peakVelInHead = dataAll.SaccadeInfo.peakVelHead(startI:endI);
 
     idxT = find(ampInHead>50 | peakVelInHead>1200 | ...
         ampInHead<2);

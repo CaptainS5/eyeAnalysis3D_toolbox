@@ -232,7 +232,7 @@ userAll = [1, 2, 8, 14, 15, 16, 20, 21, 22, 26, 27, 28, 30, 32, 33, 35, 36, 38, 
 % end
 
 %% sliding window data
-dMeta = load('ETDDC_summaryEyeHeadStats.mat');
+colors = {[1 0 0], [0 0 1]};
 
 windowLength = [30, 60, 120];% [30, 120]; % in secs
 windowGap = [10, 20, 30];% [10, 30]; % secs
@@ -241,22 +241,27 @@ for wI = 1:length(windowLength)
     load(['ETDDC_summaryEyeHeadStats_slidingWindow_', num2str(windowLength(wI)), 'length_', num2str(windowGap(wI)), 'gap.mat'])
     varAll = eyeHeadStats.Properties.VariableNames;
 
-    for dI = 1:size(dMeta.eyeHeadStats, 1)
-        userID = dMeta.eyeHeadStats.userID(dI);
-        session = dMeta.eyeHeadStats.session(dI);
-        ETDDC = dMeta.eyeHeadStats.ETDDC(dI);
-
-        idxT = find(eyeHeadStats.userID==userID & eyeHeadStats.session==session & eyeHeadStats.ETDDC==ETDDC);
-
+    for varI = 8:size(eyeHeadStats, 2)
         fig = figure('Position', figPosition);
-        for varI = 8:size(eyeHeadStats, 2)
-            subplot(6, 8, varI-7)
-            plot(eyeHeadStats.windowN(idxT), eyeHeadStats{idxT, varI})
-            xlabel('window')
-            title(varAll{varI})
+        axAll = [];
+        for subI = 1:length(userAll)
+            axAll{subI} = subplot(5, 7, subI);
+            idxT = find(eyeHeadStats.userID==userAll(subI) & eyeHeadStats.ETDDC==0);
+            plot(eyeHeadStats.windowN(idxT), eyeHeadStats{idxT, varI}, '-', 'Color', colors{1})
+
+            hold on
+            idxT = find(eyeHeadStats.userID==userAll(subI) & eyeHeadStats.ETDDC==1);
+            plot(eyeHeadStats.windowN(idxT), eyeHeadStats{idxT, varI}, '-', 'Color', colors{2})
+
+            if subI==1
+                legend({'ETDDC off', 'ETDDC on'})
+            end
+            title(num2str(userAll(subI)))
         end
+        linkaxes([axAll{:}], 'y')
+
         saveas(gcf, ['C:\Users\xiuyunwu\OneDrive - Facebook\Documents\Consultation projects_meta\ETDDC motion sickness\plots\slidingWindow\', ...
-            num2str(userID), '_', eyeHeadStats.Properties.VariableNames{varI}, '.png'])
+            eyeHeadStats.Properties.VariableNames{varI}, '_w', num2str(windowLength(wI)), '_gap', num2str(windowGap(wI)), '.png'])
         close
     end
 end
