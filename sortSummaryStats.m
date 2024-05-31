@@ -1,5 +1,5 @@
 % extract summary stats from the chunks
-clear all; close all; warning off; %clc;
+clear all; close all; warning off; clc;
 
 datafolder = 'C:\Users\xiuyunwu\Downloads\ETDDC\postprocessed data\';
 files = dir(datafolder);
@@ -13,7 +13,7 @@ count = 1;
 for fileI = 1:size(files, 1)
     load([datafolder, files(fileI).name])
 
-    eyeHeadStats.userID(count, 1) = small_file_info.UserID;
+    eyeHeadStats.userID(count, 1) = str2num(small_file_info.UserID{1});
     eyeHeadStats.session(count, 1) = small_file_info.Session;
     eyeHeadStats.ETDDC(count, 1) = small_file_info.ETDDC;
     eyeHeadStats.ten_min_chunk_in_session(count, 1) = small_file_info.fileInfo.count;
@@ -55,7 +55,7 @@ for fileI = 1:size(files, 1)
     end
 
     if ~isempty(small_file_info.EyeInfo)
-        durTotal = small_file_info.EyeInfo.timestamp(end)-small_file_info.EyeInfo.timestamp(1);
+        durTotal = small_file_info.EyeInfo{1}.timestamp(end)-small_file_info.EyeInfo{1}.timestamp(1);
         % let's use from the beginning of the first classified movement to the end of the last classified movement
 
         % doing the sanity check here, go back to the eye traces and
@@ -63,23 +63,26 @@ for fileI = 1:size(files, 1)
 
         %% blink
         %             durTotal = small_file_info.blink{dI}.offsetTime(end)-small_file_info.blink{dI}.offsetTime(1);
-        blinkDur = small_file_info.blink.offsetTime-small_file_info.blink.onsetTime;
+        blinkDur = small_file_info.blink{1}.offsetTime-small_file_info.blink{1}.onsetTime;
 
-        %             % sanity check
-        %             figure
-        %             histogram(blinkDur, 'normalization', 'probability')
-        %             xlabel('Blink duration (s)')
-        %             close
-
+%         % sanity check
+%         figure
+%         histogram(blinkDur, 'normalization', 'probability')
+%         xlabel('Blink duration (s)')
+%         pause
+%         close
+        
+        idxE = find(blinkDur>2);
+%         disp(['user ', num2str(eyeHeadStats.userID(count, 1)), ' s', num2str(eyeHeadStats.session(count, 1)), ' chunk ', num2str(eyeHeadStats.ten_min_chunk_in_session(count, 1))])
+%         disp(['num outlier ', num2str(length(idxE)), ' max dur ', num2str(nanmax(blinkDur(idxE)))])
+        blinkDur(idxE) = [];
+        
         eyeHeadStats.blink_total_num(count, 1) = length(blinkDur);
         eyeHeadStats.blink_rate_per_sec(count, 1) = length(blinkDur)/durTotal;
         eyeHeadStats.blink_dur_mean(count, 1) = nanmean(blinkDur);
         eyeHeadStats.blink_dur_median(count, 1) = nanmedian(blinkDur);
         eyeHeadStats.blink_dur_total_proportion(count, 1) = sum(blinkDur)/durTotal;
-
-%         idxE = find(blinkDur>2);
-%         blinkDur(idxE) = [];
-% 
+ 
 %         eyeHeadStats.blink_within2S_total_num(count, 1) = length(blinkDur);
 %         eyeHeadStats.blink_within2S_rate_per_sec(count, 1) = length(blinkDur)/durTotal;
 %         eyeHeadStats.blink_within2S_dur_mean(count, 1) = nanmean(blinkDur);
@@ -92,7 +95,7 @@ for fileI = 1:size(files, 1)
 
         %% fixation
         %             durTotal = small_file_info.gazeFix{dI}.offsetTime(end)-small_file_info.gazeFix{dI}.offsetTime(1);
-        fixDur = small_file_info.gazeFix.offsetTime-small_file_info.gazeFix.onsetTime;
+        fixDur = small_file_info.gazeFix{1}.offsetTime-small_file_info.gazeFix{1}.onsetTime;
 
         %             % sanity check
         %             figure
@@ -109,13 +112,13 @@ for fileI = 1:size(files, 1)
 
         %% VOR
         %             durTotal = small_file_info.VOR{dI}.offsetTime(end)-small_file_info.VOR{dI}.offsetTime(1);
-        vorDur = small_file_info.VOR.offsetTime-small_file_info.VOR.onsetTime;
+        vorDur = small_file_info.VOR{1}.offsetTime-small_file_info.VOR{1}.onsetTime;
 
-        idxV = find(small_file_info.classID==3);
-        vorHeadVel3D = small_file_info.HeadInfo.rotVel3D(idxV);
-        vorEyeInHeadVel2D = small_file_info.EyeInfo.velOriHeadFilt2D(idxV);
-        vorEyeInHeadVelHori = abs(small_file_info.EyeInfo.velOriHeadFiltX(idxV));
-        vorEyeInHeadVelVerti = abs(small_file_info.EyeInfo.velOriHeadFiltY(idxV));
+        idxV = find(small_file_info.classID{1}==3);
+        vorHeadVel3D = small_file_info.HeadInfo{1}.rotVel3D(idxV);
+        vorEyeInHeadVel2D = small_file_info.EyeInfo{1}.velOriHeadFilt2D(idxV);
+        vorEyeInHeadVelHori = abs(small_file_info.EyeInfo{1}.velOriHeadFiltX(idxV));
+        vorEyeInHeadVelVerti = abs(small_file_info.EyeInfo{1}.velOriHeadFiltY(idxV));
         % cleaning
         idxT = find(vorHeadVel3D>120 | vorHeadVel3D==0);
         vorHeadVel3D(idxT) = [];
@@ -196,11 +199,11 @@ for fileI = 1:size(files, 1)
         eyeHeadStats.sac_peak_vel_95prctile(count, 1) = prctile(peakVelInHead, 95);
 
         %% head velocity
-        headVel3D = small_file_info.HeadInfo.rotVel3D;
+        headVel3D = small_file_info.HeadInfo{1}.rotVel3DFilt;
 
-        headRotQ = [small_file_info.HeadInfo.rotFiltQw small_file_info.HeadInfo.rotFiltQx ...
-            small_file_info.HeadInfo.rotFiltQy small_file_info.HeadInfo.rotFiltQz];
-        eulYPR = quat2eul(headRotQ(2:end, :))./pi.*180.*(1./diff(small_file_info.HeadInfo.timestamp)); % yaw pitch roll, velocity
+        headRotQ = [small_file_info.HeadInfo{1}.rotFiltQw small_file_info.HeadInfo{1}.rotFiltQx ...
+            small_file_info.HeadInfo{1}.rotFiltQy small_file_info.HeadInfo{1}.rotFiltQz];
+        eulYPR = quat2eul(headRotQ(2:end, :))./pi.*180.*(1./diff(small_file_info.HeadInfo{1}.timestamp)); % yaw pitch roll, velocity
         headVelHori = abs(eulYPR(:, 1));
         headVelVerti = abs(-eulYPR(:, 2));
 
@@ -234,14 +237,14 @@ for fileI = 1:size(files, 1)
         %             close
 
         %% eye/head movement range
-        idxT = find(~isnan(small_file_info.HeadInfo.oriFiltQw) & ~isnan(small_file_info.EyeInfo.gazeOriHeadFiltX));
-        eyeOriX = small_file_info.EyeInfo.gazeOriHeadFiltX(idxT);
-        eyeOriY = small_file_info.EyeInfo.gazeOriHeadFiltY(idxT);
+        idxT = find(~isnan(small_file_info.HeadInfo{1}.oriFiltQw) & ~isnan(small_file_info.EyeInfo{1}.gazeOriHeadFiltX));
+        eyeOriX = small_file_info.EyeInfo{1}.gazeOriHeadFiltX(idxT);
+        eyeOriY = small_file_info.EyeInfo{1}.gazeOriHeadFiltY(idxT);
         eyeHeadStats.eye_in_head_horiOri_95range(count, 1) = prctile(eyeOriX, 97.5)-prctile(eyeOriX, 2.5);
         eyeHeadStats.eye_in_head_vertiOri_95range(count, 1) = prctile(eyeOriY, 97.5)-prctile(eyeOriY, 2.5);
 
-        headOriQ = [small_file_info.HeadInfo.oriFiltQw(idxT) small_file_info.HeadInfo.oriFiltQx(idxT) ...
-            small_file_info.HeadInfo.oriFiltQy(idxT) small_file_info.HeadInfo.oriFiltQz(idxT)];
+        headOriQ = [small_file_info.HeadInfo{1}.oriFiltQw(idxT) small_file_info.HeadInfo{1}.oriFiltQx(idxT) ...
+            small_file_info.HeadInfo{1}.oriFiltQy(idxT) small_file_info.HeadInfo{1}.oriFiltQz(idxT)];
         eulYPR = quat2eul(headOriQ)/pi*180; % yaw pitch roll
         headOriHori = eulYPR(:, 1);
         headOriVerti = -eulYPR(:, 2);
@@ -297,5 +300,6 @@ save('ETDDC_summaryEyeHeadStats.mat', 'eyeHeadStats')
 % exclude the blink traces and save again in csv
 % eyeHeadStats.blinkInfo = [];
 writetable(eyeHeadStats, 'ETDDC_summaryEyeHeadStats.csv')
-
-dataInfo
+% 
+% getDataInfo
+% sortSummaryStats_slidingWindow

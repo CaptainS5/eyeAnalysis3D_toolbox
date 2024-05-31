@@ -66,10 +66,10 @@ for userI = 1:length(userAll)
         idxT = strfind(fileName, 'f');
         chunk = str2num(fileName(idxT+1));
 
-        % You can jump users based on ID, as always
-        if userID==1 && session==1
-            continue
-        end
+%         % You can jump users based on ID, as always
+%         if ~(userID==26 && session==1 && chunk==4) 
+%             continue
+%         end
 
         % Identify current user...
         fprintf('Analyzing session %d chunk %d for user %d\n',session, chunk, userID);
@@ -79,7 +79,7 @@ for userI = 1:length(userAll)
 
         flag = 0;
         first_non_nan_row = 1;
-        while isnan(eyeTrial.headAligned.posZ(first_non_nan_row))
+        while isnan(eyeTrial.headAligned.posZ(first_non_nan_row)) || isnan(eyeTrial.headAligned.posZ(first_non_nan_row+1))
             first_non_nan_row = first_non_nan_row + 1;
             flag = 1;
         end
@@ -135,7 +135,6 @@ for userI = 1:length(userAll)
 %         end
 
         try
-
             %% FILTER DATA. THIS IS ONE OF THE MOST CRITICAL POINTS!
             eyeTrial.headTrace = filterHeadTrace(eyeTrial.headAligned, eyeTrial.sampleRate);
             eyeTrial.eyeTrace = filterEyeTrace(eyeTrial.eyeAligned, eyeTrial.sampleRate);
@@ -200,7 +199,7 @@ for userI = 1:length(userAll)
             sub_file_info.SaccadeInfo.peakVelHead = sacStats.peakVelHead;
             sub_file_info.SaccadeInfo.duration = sacStats.duration;
         catch
-            disp('Skipped due to errors...');
+            disp('SKIPPED due to errors...');
         end
 
         small_file_info = sub_file_info;
@@ -212,7 +211,7 @@ end
 % Just for performance check
 toc;
 
-sortSummaryStats;
+% sortSummaryStats;
 
 % % sanity check plots
 % figure
