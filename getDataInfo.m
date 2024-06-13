@@ -203,33 +203,54 @@ userAll = [1, 2, 8, 14, 15, 16, 20, 21, 22, 26, 27, 28, 30, 32, 33, 35, 36, 38, 
 % close
 % 
 %% summary stats sanity check
-% colors = {[1 0 0], [0 0 1]};
-% load('ETDDC_summaryEyeHeadStats.mat')
-% 
-% for varI = 6:size(eyeHeadStats, 2)
-%     fig = figure('Position', figPosition);
-%     axAll = [];
-%     for subI = 1:length(userAll)
-%         axAll{subI} = subplot(5, 7, subI);
-%         idxT = find(eyeHeadStats.userID==userAll(subI) & eyeHeadStats.ETDDC==0);
-%         plot(eyeHeadStats.ten_min_chunk_in_session(idxT), eyeHeadStats{idxT, varI}, 'o-', 'Color', colors{1})
-% 
-%         hold on
-%         idxT = find(eyeHeadStats.userID==userAll(subI) & eyeHeadStats.ETDDC==1);
-%         plot(eyeHeadStats.ten_min_chunk_in_session(idxT), eyeHeadStats{idxT, varI}, 'o-', 'Color', colors{2})
-% 
-%         %         ylim([0, 0.4])
-%         if subI==1
-%             legend({'ETDDC off', 'ETDDC on'})
-%         end
-%         title(num2str(userAll(subI)))
-%     end
-%     linkaxes([axAll{:}], 'y')
-% 
-%     saveas(gcf, ['C:\Users\xiuyunwu\OneDrive - Facebook\Documents\Consultation projects_meta\ETDDC motion sickness\plots\summaryStats\', ...
-%         eyeHeadStats.Properties.VariableNames{varI}, '.png'])
+colors = {[1 0 0], [0 0 1]};
+load('ETDDC_summaryEyeHeadStats.mat')
+
+% plot the distribution of all users
+fig = figure('Position', figPosition);
+for varI = 6:size(eyeHeadStats, 2)
+    subplot(6, 9, varI-5);
+    idxT = find(eyeHeadStats.ETDDC==0);
+    histogram(eyeHeadStats{idxT, varI}, 'FaceAlpha', 0.5)
+    hold on
+
+    idxT = find(eyeHeadStats.ETDDC==1);
+    histogram(eyeHeadStats{idxT, varI}, 'FaceAlpha', 0.5)
+
+    if varI==6
+        legend({'ETDDC off', 'ETDDC on'})
+    end
+    title(eyeHeadStats.Properties.VariableNames{varI})
+end
+saveas(gcf, ['C:\Users\xiuyunwu\OneDrive - Facebook\Documents\Consultation projects_meta\ETDDC motion sickness\plots\summaryStats\', ...
+        'distribution_summaryStats_allVars.png'])
 %     close
-% end
+
+% plot each user's distribution
+for varI = 46:size(eyeHeadStats, 2)
+    fig = figure('Position', figPosition);
+    axAll = [];
+    for subI = 1:length(userAll)
+        axAll{subI} = subplot(5, 7, subI);
+        idxT = find(eyeHeadStats.userID==userAll(subI) & eyeHeadStats.ETDDC==0);
+        plot(eyeHeadStats.ten_min_chunk_in_session(idxT), eyeHeadStats{idxT, varI}, 'o-', 'Color', colors{1})
+
+        hold on
+        idxT = find(eyeHeadStats.userID==userAll(subI) & eyeHeadStats.ETDDC==1);
+        plot(eyeHeadStats.ten_min_chunk_in_session(idxT), eyeHeadStats{idxT, varI}, 'o-', 'Color', colors{2})
+
+        %         ylim([0, 0.4])
+        if subI==1
+            legend({'ETDDC off', 'ETDDC on'})
+        end
+        title(num2str(userAll(subI)))
+    end
+    linkaxes([axAll{:}], 'y')
+
+    saveas(gcf, ['C:\Users\xiuyunwu\OneDrive - Facebook\Documents\Consultation projects_meta\ETDDC motion sickness\plots\summaryStats\', ...
+        eyeHeadStats.Properties.VariableNames{varI}, '.png'])
+    close
+end
 
 %% sliding window data
 colors = {[1 0 0], [0 0 1]};
@@ -241,7 +262,7 @@ for wI = 1:length(windowLength)
     load(['ETDDC_summaryEyeHeadStats_slidingWindow_', num2str(windowLength(wI)), 'length_', num2str(windowGap(wI)), 'gap.mat'])
     varAll = eyeHeadStats.Properties.VariableNames;
 
-    for varI = 8:size(eyeHeadStats, 2)
+    for varI = 48:size(eyeHeadStats, 2)
         fig = figure('Position', figPosition);
         axAll = [];
         for subI = 1:length(userAll)
@@ -578,14 +599,17 @@ if ~isempty(idxT)
     eulYPR = quat2eul(headOriQ)/pi*180; % yaw pitch roll
     headOriHori = eulYPR(:, 1);
     headOriVerti = -eulYPR(:, 2);
+    headOriRoll = eulYPR(:, 3);
 
     stats.head_horiOri_95range = prctile(headOriHori, 97.5)-prctile(headOriHori, 2.5);
     stats.head_vertiOri_95range = prctile(headOriVerti, 97.5)-prctile(headOriVerti, 2.5);
+    stats.head_rollOri_95range = prctile(headOriRoll, 97.5)-prctile(headOriRoll, 2.5);
 else
     stats.eye_in_head_horiOri_95range = NaN;
     stats.eye_in_head_vertiOri_95range = NaN;
     stats.head_horiOri_95range = NaN;
     stats.head_vertiOri_95range = NaN;
+    stats.head_rollOri_95range = NaN;
 end
 
 end

@@ -58,6 +58,11 @@ for fileI = 1:size(files, 1)
         durTotal = small_file_info.EyeInfo{1}.timestamp(end)-small_file_info.EyeInfo{1}.timestamp(1);
         % let's use from the beginning of the first classified movement to the end of the last classified movement
 
+        % head rotation
+        headRotQ = [small_file_info.HeadInfo{1}.rotFiltQw small_file_info.HeadInfo{1}.rotFiltQx ...
+            small_file_info.HeadInfo{1}.rotFiltQy small_file_info.HeadInfo{1}.rotFiltQz];
+        eulYPR = quat2eul(headRotQ(2:end, :))./pi.*180.*(1./diff(small_file_info.HeadInfo{1}.timestamp)); % yaw pitch roll, velocity
+        
         % doing the sanity check here, go back to the eye traces and
         % classification info if needed, especially for saccades
 
@@ -201,11 +206,9 @@ for fileI = 1:size(files, 1)
         %% head velocity
         headVel3D = small_file_info.HeadInfo{1}.rotVel3DFilt;
 
-        headRotQ = [small_file_info.HeadInfo{1}.rotFiltQw small_file_info.HeadInfo{1}.rotFiltQx ...
-            small_file_info.HeadInfo{1}.rotFiltQy small_file_info.HeadInfo{1}.rotFiltQz];
-        eulYPR = quat2eul(headRotQ(2:end, :))./pi.*180.*(1./diff(small_file_info.HeadInfo{1}.timestamp)); % yaw pitch roll, velocity
         headVelHori = abs(eulYPR(:, 1));
         headVelVerti = abs(-eulYPR(:, 2));
+        headVelRoll = abs(eulYPR(:, 3));
 
         % cleaning
         idxT = find(headVel3D>120 | isnan(headVel3D));
@@ -214,6 +217,7 @@ for fileI = 1:size(files, 1)
         idxT =  find(isnan(headVelHori));
         headVelHori(idxT) = [];
         headVelVerti(idxT) = [];
+        headVelRoll(idxT) = [];
 
         eyeHeadStats.head_3DVel_median_magnitude(count, 1) = nanmedian(headVel3D);
         eyeHeadStats.head_3DVel_95prctile(count, 1) = prctile(headVel3D, 95); %prctile(headVel3D, 97.5)-prctile(headVel3D, 2.5);
@@ -221,6 +225,9 @@ for fileI = 1:size(files, 1)
         eyeHeadStats.head_horiVel_95prctile(count, 1) = prctile(headVelHori, 95); %prctile(headVelHori, 97.5)-prctile(headVelHori, 2.5);
         eyeHeadStats.head_vertiVel_median_magnitude(count, 1) = nanmedian(headVelVerti);
         eyeHeadStats.head_vertiVel_95prctile(count, 1) = prctile(headVelVerti, 95); %prctile(headVelVerti, 97.5)-prctile(headVelVerti, 2.5);
+        eyeHeadStats.head_rollVel_median_magnitude(count, 1) = nanmedian(headVelRoll);
+        eyeHeadStats.head_rollVel_95prctile(count, 1) = prctile(headVelRoll, 95); %prctile(headVelVerti, 97.5)-prctile(headVelVerti, 2.5);
+        
         %
         %             % sanity check plots
         %             figure
@@ -248,9 +255,11 @@ for fileI = 1:size(files, 1)
         eulYPR = quat2eul(headOriQ)/pi*180; % yaw pitch roll
         headOriHori = eulYPR(:, 1);
         headOriVerti = -eulYPR(:, 2);
+        headOriRoll = eulYPR(:, 3);
 
         eyeHeadStats.head_horiOri_95range(count, 1) = prctile(headOriHori, 97.5)-prctile(headOriHori, 2.5);
         eyeHeadStats.head_vertiOri_95range(count, 1) = prctile(headOriVerti, 97.5)-prctile(headOriVerti, 2.5);
+        eyeHeadStats.head_rollOri_95range(count, 1) = prctile(headOriRoll, 97.5)-prctile(headOriRoll, 2.5);
 
         %             % sanity check plots
         %             figure
@@ -302,4 +311,4 @@ save('ETDDC_summaryEyeHeadStats.mat', 'eyeHeadStats')
 writetable(eyeHeadStats, 'ETDDC_summaryEyeHeadStats.csv')
 % 
 % getDataInfo
-% sortSummaryStats_slidingWindow
+sortSummaryStats_slidingWindow

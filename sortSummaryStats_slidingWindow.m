@@ -1,5 +1,5 @@
 % extract summary stats from the chunks
-clear all; close all; warning off; clc; 
+clear all; close all; warning off;% clc; 
 
 %% set parameters
 windowLength = [30, 60, 120]; %, 300, 600]; % in secs
@@ -429,9 +429,11 @@ if ~isempty(headVel3D)
     
     headVelHori = abs(eulYPR(startI:endI, 1));
     headVelVerti = abs(-eulYPR(startI:endI, 2));    
+    headVelRoll = abs(-eulYPR(startI:endI, 3));    
     
     headVelHori(idxT) = [];
     headVelVerti(idxT) = [];
+    headVelRoll(idxT) = [];
     
     stats.head_3DVel_median_magnitude = nanmedian(headVel3D);
     stats.head_3DVel_95prctile = prctile(headVel3D, 95);
@@ -439,6 +441,8 @@ if ~isempty(headVel3D)
     stats.head_horiVel_95prctile = prctile(headVelHori, 95);
     stats.head_vertiVel_median_magnitude = nanmedian(headVelVerti);
     stats.head_vertiVel_95prctile = prctile(headVelVerti, 95);
+    stats.head_rollVel_median_magnitude = nanmedian(headVelRoll);
+    stats.head_rollVel_95prctile = prctile(headVelRoll, 95);
 else
     stats.head_3DVel_median_magnitude = NaN;
     stats.head_3DVel_95prctile = NaN;
@@ -446,6 +450,8 @@ else
     stats.head_horiVel_95prctile = NaN;
     stats.head_vertiVel_median_magnitude = NaN;
     stats.head_vertiVel_95prctile = NaN;
+    stats.head_rollVel_median_magnitude = NaN;
+    stats.head_rollVel_95prctile = NaN;
 end
 
 %% eye/head movement range
@@ -473,14 +479,17 @@ if ~isempty(idxT)
     eulYPR = quat2eul(headOriQ)/pi*180; % yaw pitch roll
     headOriHori = eulYPR(:, 1);
     headOriVerti = -eulYPR(:, 2);
+    headOriRoll = eulYPR(:, 3);
     
     stats.head_horiOri_95range = prctile(headOriHori, 97.5)-prctile(headOriHori, 2.5);
     stats.head_vertiOri_95range = prctile(headOriVerti, 97.5)-prctile(headOriVerti, 2.5);
+    stats.head_rollOri_95range = prctile(headOriRoll, 97.5)-prctile(headOriRoll, 2.5);
 else
     stats.eye_in_head_horiOri_95range = NaN;
     stats.eye_in_head_vertiOri_95range = NaN;
     stats.head_horiOri_95range = NaN;
     stats.head_vertiOri_95range = NaN;
+    stats.head_rollOri_95range = NaN;
 end
 
 end
