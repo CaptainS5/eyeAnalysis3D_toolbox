@@ -102,7 +102,7 @@ for wI = 1:length(windowLength)
     writetable(eyeHeadStats, ['ETDDC_summaryEyeHeadStats_slidingWindow_', num2str(windowLength(wI)), 'length_', num2str(windowGap(wI)), 'gap.csv'])
 end
 
-getDataInfo
+% getDataInfo
 
 function stats = getWindowStats(dataAll, wStartI, wEndI, windowN)
 stats = table;
