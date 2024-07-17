@@ -22,7 +22,7 @@ currentTrial = 1; % starting from which trial to view the analysis plots
 % here we assume that the raw data has already be sorted into tables in matlab
 % see more details in sortRawData.m for the outcome of the data tables
 % load([dataPath, 'data', num2str(currentTrial), '.mat']) 
-load([dataPath, 'example.mat'])
+load([dataPath, 'data_GP1.mat'])
 
 %% open a figure as the visualization GUI
 % set size depending on your current screen size

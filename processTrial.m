@@ -64,10 +64,10 @@ end
     % 1 = saccade
 
     % use blinkFlag to double check and update eyeTrial.classID
-    idx = find(eyeTrial.classID~=0 & eyeTrial.classID~=0.5 & eyeTrial.eyeAligned.blinkFlag>0);
-    if ~isempty(idx)
-        eyeTrial.classID(idx) = 0.5;
-    end
+%     idx = find(eyeTrial.classID~=0 & eyeTrial.classID~=0.5 & eyeTrial.eyeAligned.blinkFlag>0);
+%     if ~isempty(idx)
+%         eyeTrial.classID(idx) = 0.5;
+%     end
 
     %% saccade analysis
     [eyeTrial.saccade, eyeTrial.classID] = findSaccade(eyeTrial.eyeTrace, eyeTrial.sampleRate, eyeTrial.classID, sacThres);
