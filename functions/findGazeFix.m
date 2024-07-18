@@ -8,11 +8,12 @@ function [gazeFix classID] = findGazeFix(eyeTrace, eyeFrameXYZ, fixThres, classI
 %   gaze fixation (including VOR) start and end indices, one pair for each
 %   classID with gaze fixation (3) added
 
-gazeFix.thresDur = fixThres.dur;
+gazeFix.thresVel = fixThres.vel;
+gazeFix.thresDur = fixThres.minDur;
 gazeFix.thresRad = fixThres.rad;
 
 % find unclassified chunks
-iAll = isnan(classID) & eyeTrace.velOriWorldFilt2D<30;
+iAll = isnan(classID) & eyeTrace.velOriWorldFilt2D<gazeFix.thresVel;
 if sum(iAll)>0 % there are unclassified chunks
     % get the start and end of each chunk
     iDiff = diff(iAll);
@@ -36,23 +37,23 @@ if sum(iAll)>0 % there are unclassified chunks
     ii = 1;
     while ii<=length(startI)
         %     for ii = 1:length(startI)
-        if endI(ii)-startI(ii)>=fixThres.dur % if duration is long enough to start with
+        if endI(ii)-startI(ii)>=gazeFix.thresDur % if duration is long enough to start with
             gazeOri = [eyeTrace.gazeOriWorldFiltX(startI(ii):endI(ii)) ...
                 eyeTrace.gazeOriWorldFiltY(startI(ii):endI(ii))];
 
             startT = 1; %startI(ii);
-            endT = startT + ms2frame(fixThres.dur*1000, sampleRate)-2;
+            endT = startT + ms2frame(gazeFix.thresDur*1000, sampleRate)-2;
             valid = 0;
 
             while startI(ii)+startT+endT-1 < endI(ii)
                 window = gazeOri(startT:endT+1, :);
                 rad = ( range(window(:, 1)) + range(window(:, 2)) )/2;
 
-                if rad<=fixThres.rad
+                if rad<=gazeFix.thresRad
                     endT = endT+1;
                     valid = 1;
                 else
-                    if (endT-startT+1) < ms2frame(fixThres.dur*1000, sampleRate)
+                    if (endT-startT+1) < ms2frame(gazeFix.thresDur*1000, sampleRate)
                         startT = startT+1;
                         endT = endT+1;
                         valid = 0;
@@ -71,7 +72,7 @@ if sum(iAll)>0 % there are unclassified chunks
                 gazeFix.offsetTime = [gazeFix.offsetTime; timestamp(eI)];
                 classID(sI:eI) = 2;
 
-                if endI(ii)-eI >=fixThres.dur % if the rest is still longer than allowed... see if there's another fixation
+                if endI(ii)-eI >=gazeFix.thresDur % if the rest is still longer than allowed... see if there's another fixation
                     % insert this new vel peak duration to check next
                     startI = [startI(1:ii); eI+1; startI(ii+1:end)];
                     endI = [endI(1:ii-1); eI; endI(ii:end)];

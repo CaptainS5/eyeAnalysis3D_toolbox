@@ -1,18 +1,8 @@
-function [blink classID] = findBlink(eyeTrace, sampleRate, dataType, initialThres)
-% use gaze velocity to identify blinks--since we want to exclude those from
-% saccades
-% should be two consecutive peaks in opposite directions
+function [blink classID] = findBlink(eyeTrace, sampleRate, dataType, blinkThres)
+% currently only applies to video-based eye tracker, or similar ones when
+% blinks are loss of signal
 classID = NaN(size(eyeTrace.velOriWorldFiltX)); % initialize
-blink.maxDur = 0.6; % to account for data losses due to other issues
 
-% "a blink is associated with the eyes moving primarily downwards and
-% towards the nose (first component) followed by a return towards the
-% starting position (second component). This alternation of components is
-% completed within 50 ms". --Khazali, Pomper & Thier, 2017, Scientific
-% Reports
-vel = eyeTrace.velOriWorldFilt2D; % use retinal gaze change to identify "suspects"
-
-% video-based eye tracking, blinks as no signal in data
 blinkIdx = isnan(eyeTrace.velOriWorldFilt2D);
 
 % on and offsets of the missing signal frames
@@ -27,8 +17,9 @@ if blinkIdx(end)==1
     offsetBI = [offsetBI; length(iDiff)];
 end
 
-% locate on- and off-sets by finding the intersection before and after
-% the missing signal frames...
+% locate on- and off-sets by finding the intersection/signal change on 
+% velocity trace before and after the missing signal frames
+vel = eyeTrace.velOriWorldFilt2D; 
 velDiff = [NaN; diff(vel)];
 signChange = [NaN; sign(velDiff(1:end-1).*velDiff(2:end))];
 for ii = 1:length(onsetBI)
@@ -54,10 +45,10 @@ if ~isempty(blink.onsetI)
     blink.offsetTime = eyeTrace.timestamp(blink.offsetI); % actual time stamp of offset
 
     for ii = 1:length(blink.onsetI)
-        if blink.offsetTime(ii)-blink.onsetTime(ii) <= blink.maxDur
+        if blink.offsetTime(ii)-blink.onsetTime(ii) <= blinkThres.maxDur
             classID(blink.onsetI(ii):blink.offsetI(ii)) = 0;
         else
-            classID(blink.onsetI(ii):blink.offsetI(ii)) = 0.5;
+            classID(blink.onsetI(ii):blink.offsetI(ii)) = 0.5; % mark them as suspecious blinks...
         end
     end
 else
