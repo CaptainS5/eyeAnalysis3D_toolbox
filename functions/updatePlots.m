@@ -1,7 +1,7 @@
 function updatePlots(plotMode, eyeTrial, axSub, fig)
 set(0, 'CurrentFigure', fig)
 time = eyeTrial.eyeTrace.timestamp-min(eyeTrial.eyeTrace.timestamp);
-xRange = [1, 10]; %time(1) time(end)]; %
+xRange = [4, 7]; %time(1) time(end)]; %
 yRange = [-200 200]; % [-100 100];%
 
 if plotMode==0 % final result plots with classification; legend are distributed across the three plots
@@ -190,37 +190,53 @@ elseif plotMode==1 % plot head velocity in Euler angles
 elseif plotMode==2 % plots with raw & filtered velocity trace after getEyeTrace.m
     % might also be useful when you have multiple filters and you want to check
     % if each makes sense, or if acceleration looks good, edit as you need
+    
     subplot(axSub(1))
-%     plot(time, eyeTrial.eyeAligned.gazeOriHeadX, '-')
-    plot(time, eyeTrial.eyeTrace.velOriHeadRawX, '-')
+
+    % orientation filters
+    plot(time, eyeTrial.eyeAligned.gazeOriHeadX, '-')
     hold on
-    plot(time, eyeTrial.eyeTrace.velOriHeadFiltX, '--')
-% plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltX, '--')
-    legend({'Raw velocity', 'Filtered velocity'}) % now showing the eye-in-head velocities
+    plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltX, '--')
+    ylabel('Horizontal orientation (deg)')
+
+    %     % velocity filters
+    %     plot(time, eyeTrial.eyeTrace.velOriHeadRawX, '-')
+    %     hold on
+    %     plot(time, eyeTrial.eyeTrace.velOriHeadFiltX, '--')
+    %     ylabel('Vel from filtered horizontal pos (deg/s)')
+
+    legend({'Raw', 'Filtered'}) % now showing the eye-in-head velocities
     xlabel('Time (s)')
-    ylabel('Vel from filtered horizontal pos (deg/s)')
     xlim(xRange)
     hold off
 
     subplot(axSub(2))
-    plot(time, eyeTrial.eyeTrace.velOriHeadRawY, '-')
-% plot(time, eyeTrial.eyeAligned.gazeOriHeadY, '-')
+    % orientation filters
+    plot(time, eyeTrial.eyeAligned.gazeOriHeadY, '-')
     hold on
-    plot(time, eyeTrial.eyeTrace.velOriHeadFiltY, '--')
-% plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltY, '--')
-    legend({'Raw velocity', 'Filtered velocity'})
+    plot(time, eyeTrial.eyeTrace.gazeOriHeadFiltY, '--')
+    ylabel('Vertical orientation (deg)')
+
+%     % velocity filters
+%     plot(time, eyeTrial.eyeTrace.velOriHeadRawY, '-')
+%     hold on
+%     plot(time, eyeTrial.eyeTrace.velOriHeadFiltY, '--')
+%     ylabel('Vel from filtered vertical pos (deg/s)')
+
+    legend({'Raw', 'Filtered'})
     xlabel('Time (s)')
-    ylabel('Vel from filtered vertical pos (deg/s)')
     xlim(xRange)
     hold off
 
     subplot(axSub(3))
+    % velocity filters
     plot(time, eyeTrial.eyeTrace.velOriHeadRaw2D, '-')
     hold on
     plot(time, eyeTrial.eyeTrace.velOriHeadFilt2D, '--')
-    legend({'Raw velocity', 'Filtered velocity'})
+    ylabel('2D velocity (deg/s)')
+
+    legend({'Raw', 'Filtered'})
     xlabel('Time (s)')
-%     ylabel('2D velocity (deg/s)')
     xlim(xRange)
     hold off
 

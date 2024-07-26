@@ -18,6 +18,12 @@ dataPath = [analysisPath, '\data\pre_processed\data_GP']; % path + filename befo
 loadEyeTrial = 0; % if to re-process the eye trial data (0), or just to load (1) and plot
 currentTrial = 1; % starting from which file to view the analysis plots
 
+plotMode = 2; % for the GUI, which plots you want to see; can customize in updatePlots.m
+% default is 0 = plot velocity traces with classification, 1 = plot head
+% velocity, 2 = plot raw vs. filtered trace, change in updatePlots.m for
+% orientaion/velocity
+% could change in the GUI whenever you want
+
 %% Set classification thresholds
 % the noiseThres are mostly serving as a hard boundary for noise exclusion
 % of the obviously wrong values; shouldn't matter much if you have a good
@@ -93,8 +99,6 @@ else % use GUI to click through
 
     %% go through the analysis and plot
     eyeTrial = processTrial(dataPath, currentTrial, loadEyeTrial, blinkThres, sacThres, fixThres, vorThres); % set the detection thresholds in this function
-    plotMode = 0; % default is to plot the results with saccade detection & stats on velocity & acceleration traces
-    % could change in the GUI to plot saccades on position trace, or middle steps of filtering (getEyeTrace.m)
     % sacEditing = 0; % whether it is currently manually selecting saccades, default is 0
     updateGUI;
 
